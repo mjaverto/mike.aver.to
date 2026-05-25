@@ -37,6 +37,15 @@ const appearances: Appearance[] = [
     href: 'https://open.spotify.com/show/1Ilj7Td2QIntrxEoNZDXx6',
     cta: 'Listen on Spotify',
   },
+  {
+    title: 'How ChannelApe Built a Capital-Efficient SaaS Business',
+    show: 'Latka Podcast with Nathan Latka',
+    cue: 'SaaS founder interview',
+    description:
+      'A by-the-numbers founder interview on building ChannelApe — revenue, team size, capital efficiency, and the realities of growing a B2B SaaS business in the ecommerce fulfillment space.',
+    href: 'https://getlatka.com/companies/channelape',
+    cta: 'See the interview',
+  },
 ]
 
 function SpeakingSection({

@@ -1,19 +1,107 @@
 import { type Metadata } from 'next'
 
+import { Card } from '@/components/Card'
 import { SimpleLayout } from '@/components/SimpleLayout'
+
+function LinkIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <path
+        d="M15.712 11.823a.75.75 0 1 0 1.06 1.06l-1.06-1.06Zm-4.95 1.768a.75.75 0 0 0 1.06-1.06l-1.06 1.06Zm-2.475-1.414a.75.75 0 1 0-1.06-1.06l1.06 1.06Zm4.95-1.768a.75.75 0 1 0-1.06 1.06l1.06-1.06Zm3.359.53-.884.884 1.06 1.06.885-.883-1.061-1.06Zm-4.95-2.12 1.414-1.415L12 6.344l-1.415 1.413 1.061 1.061Zm0 3.535a2.5 2.5 0 0 1 0-3.536l-1.06-1.06a4 4 0 0 0 0 5.656l1.06-1.06Zm4.95-4.95a2.5 2.5 0 0 1 0 3.535L17.656 12a4 4 0 0 0 0-5.657l-1.06 1.06Zm1.06-1.06a4 4 0 0 0-5.656 0l1.06 1.06a2.5 2.5 0 0 1 3.536 0l1.06-1.06Zm-7.07 7.07.176.177 1.06-1.06-.176-.177-1.06 1.06Zm-3.183-.353.884-.884-1.06-1.06-.884.883 1.06 1.061Zm4.95 2.121-1.414 1.414 1.06 1.06 1.415-1.413-1.06-1.061Zm0-3.536a2.5 2.5 0 0 1 0 3.536l1.06 1.06a4 4 0 0 0 0-5.656l-1.06 1.06Zm-4.95 4.95a2.5 2.5 0 0 1 0-3.535L6.344 12a4 4 0 0 0 0 5.656l1.06-1.06Zm-1.06 1.06a4 4 0 0 0 5.657 0l-1.061-1.06a2.5 2.5 0 0 1-3.536 0l-1.06 1.06Zm7.07-7.07-.176-.177-1.06 1.06.176.178 1.06-1.061Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
+const projects = [
+  {
+    name: 'infinite-recall',
+    description:
+      'Local-first macOS rewind/recorder. Always-on capture, on-device transcription (WhisperKit), on-device diarization (MFCC), local LLM via mlx-lm.server, Omi-shaped REST API for MCP clients.',
+    link: {
+      href: 'https://github.com/mjaverto/infinite-recall',
+      label: 'github.com/mjaverto/infinite-recall',
+    },
+  },
+  {
+    name: 'ace',
+    description:
+      'Agent Conversation Exporter — render Claude Code, Codex, Pi, and opencode transcripts to Markdown.',
+    link: {
+      href: 'https://github.com/mjaverto/ace',
+      label: 'github.com/mjaverto/ace',
+    },
+  },
+  {
+    name: 'troublemaker',
+    description:
+      'Mom, liberated. Multi-platform AI agent runtime.',
+    link: {
+      href: 'https://github.com/mjaverto/troublemaker',
+      label: 'github.com/mjaverto/troublemaker',
+    },
+  },
+  {
+    name: 'messaging-markdown-exporter',
+    description:
+      'Export conversations from multiple messaging apps into a shared Markdown format.',
+    link: {
+      href: 'https://github.com/mjaverto/messaging-markdown-exporter',
+      label: 'github.com/mjaverto/messaging-markdown-exporter',
+    },
+  },
+  {
+    name: 'yearbird',
+    description:
+      'Year-at-a-glance calendar view for Google Calendar.',
+    link: {
+      href: 'https://github.com/mjaverto/yearbird',
+      label: 'github.com/mjaverto/yearbird',
+    },
+  },
+  {
+    name: 'squid-proxy-lockdown',
+    description:
+      'OpenClaw skill: monitor and lock down your AI agent\'s outbound network traffic with Squid.',
+    link: {
+      href: 'https://github.com/mjaverto/squid-proxy-lockdown',
+      label: 'github.com/mjaverto/squid-proxy-lockdown',
+    },
+  },
+]
 
 export const metadata: Metadata = {
   title: 'Projects',
-  description: "Things I'm working on and have shipped.",
+  description: 'Things I\'ve built and contributed to.',
 }
 
 export default function Projects() {
   return (
     <SimpleLayout
-      title="Things I'm working on."
-      intro="I've shipped a handful of projects over the years. More details coming soon — check my GitHub in the meantime."
+      title="Things I've built and contributed to."
+      intro="A mix of original projects and forks I actively work on — mostly TypeScript and Swift, mostly AI-adjacent."
     >
-      <p className="text-zinc-600 dark:text-zinc-400">Coming soon.</p>
+      <ul
+        role="list"
+        className="grid grid-cols-1 gap-x-12 gap-y-16 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        {projects.map((project) => (
+          <Card as="li" key={project.name}>
+            <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md shadow-zinc-800/5 ring-1 ring-zinc-900/5 dark:border dark:border-zinc-700/50 dark:bg-zinc-800 dark:ring-0">
+              <LinkIcon className="h-6 w-6 text-zinc-500 dark:text-zinc-400" />
+            </div>
+            <h2 className="mt-6 text-base font-semibold text-zinc-800 dark:text-zinc-100">
+              <Card.Link href={project.link.href}>{project.name}</Card.Link>
+            </h2>
+            <Card.Description>{project.description}</Card.Description>
+            <p className="relative z-10 mt-6 flex text-sm font-medium text-zinc-400 transition group-hover:text-teal-500 dark:text-zinc-200">
+              <LinkIcon className="h-6 w-6 flex-none" />
+              <span className="ml-2">{project.link.label}</span>
+            </p>
+          </Card>
+        ))}
+      </ul>
     </SimpleLayout>
   )
 }

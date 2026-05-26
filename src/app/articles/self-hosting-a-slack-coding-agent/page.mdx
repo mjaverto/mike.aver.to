@@ -56,6 +56,8 @@ That's the whole system. Now let's build it, in the order that actually worked.
 
 ---
 
+<a id="prereqs" />
+
 ## Prerequisites
 
 - **A Docker host you control,** with Docker Engine + Compose v2. (I manage mine via Portainer, but plain `docker compose` is fine. Nothing here requires Portainer.)
@@ -66,6 +68,67 @@ That's the whole system. Now let's build it, in the order that actually worked.
 - **Comfort reading a TypeScript source tree.** You *will* end up grepping the runtime's source to answer questions the docs don't. Budget for it.
 
 ---
+
+<a id="quickstart" />
+
+## Quickstart (the happy path)
+
+If you just want it running, here's the whole sequence with nothing to read between steps. Each step links down to the section with the trap that will bite you there. When something breaks, that link is where to go.
+
+**1. Build a pinned, reproducible image.** On the host, clone Skein, check out the SHA you want, patch the Dockerfile to copy the checked-out tree instead of cloning `HEAD`, then build:
+
+```bash
+git clone https://github.com/mjaverto/skein && cd skein
+git checkout <SHA>
+# in the Dockerfile, replace the `RUN git clone … HEAD` line with:
+#   COPY . /opt/skein
+docker build -t local/skein-kit:<SHA> .
+```
+
+Why the patch matters (the Dockerfile floats `HEAD`): [§1](#image).
+
+**2. Create the Slack app and grab two tokens.** Create the app from the manifest ([full manifest in §2](#slack)). Then generate an **app-level** token with `connections:write` (`xapp-…`), hit **Install to Workspace** for the bot token (`xoxb-…`), and `/invite` the bot into one low-stakes channel. Socket Mode switches on by itself once both tokens are set. The scope list is bigger than the tutorials say: [§2](#slack).
+
+**3. Point it at a model.** Skip the headless OAuth fight. Reuse an `auth.json` you already have by copying it into the agent's auth volume, then set the provider and model:
+
+```bash
+MOM_MODEL_PROVIDER=openai-codex
+MOM_MODEL_ID=gpt-5.5
+```
+
+A wrong provider string does not error, it silently falls back. Verify from the logs: [§3](#model).
+
+**4. Make a GitHub bot identity.** Create a dedicated bot account, add it to your org with **Write** on the target repos, and mint a fine-grained PAT whose **resource owner is the org** (not the personal account), scoped to Contents R/W and Pull requests R/W. Verify before you go further:
+
+```bash
+gh api repos/your-org/app --jq .permissions.push   # must print: true
+```
+
+The 404-not-403 org-ownership trap is the one that cost the most time: [§4](#github).
+
+**5. Lay down the stack.** Create the host dirs, then drop in `kit.env`, `docker-compose.yml`, a `gitconfig` (mind the quotes), and your persona files (`IDENTITY.md` / `SOUL.md`) *before* first boot. Copy-paste templates for all of these live in [§5](#compose).
+
+**6. Start it, then verify the model.** Bring it up, mention it once, and confirm from the logs that you got the model you configured:
+
+```bash
+docker compose -f /srv/kit/config/docker-compose.yml up -d
+# in your channel:  @Kit who are you?
+docker compose -f /srv/kit/config/docker-compose.yml logs -f | grep -i "model:"
+```
+
+You want `Model: openai-codex/gpt-5.5`, not a fallback. Day-two operation: [§8](#operate).
+
+**7. (Optional) Tune behavior and add skills.** Threading, the instant `:ack:` reaction, hiding the "Thinking" placeholder, and concise-by-default are all in [§6](#behavior). Teaching it skills, and letting it write its own, is [§7](#skills).
+
+That's the happy path. Before you widen it past one channel, read [Security posture](#security).
+
+---
+
+## The full walkthrough (every gotcha, in order)
+
+Same sequence as the quickstart, now with the traps, the war stories, and the reasoning behind each call. Jump back to the [quickstart](#quickstart) when you just need the command.
+
+<a id="image" />
 
 ## 1) Stand up the runtime image (pinned and reproducible)
 
@@ -109,6 +172,8 @@ command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "/data"]
 The image runs as **root** by default. A lot of "helpful" advice (and our first plan) said to `chown 1000:1000` and mount into `/home/<user>/…`. That's wrong for this image. The process is root, `HOME=/root`, and the auth/creds live under `/root/.config/gh`, `/root/.pi/agent`, etc. Either keep root and mount into `/root/...`, or add a non-root user *in the Dockerfile build* (and if you go non-root, you'll have to fix permissions on `/root/.cache/puppeteer`, which is `0700`, or the bundled Chromium tools EACCES). We kept root for v1.
 
 ---
+
+<a id="slack" />
 
 ## 2) Create the Slack app (manifest, scopes, Socket Mode, tokens)
 
@@ -198,6 +263,8 @@ When you *add* scopes to an already-installed app, the existing `xoxb-` token **
 
 ---
 
+<a id="model" />
+
 ## 3) Model auth (Pi's `openai-codex` provider via ChatGPT OAuth)
 
 Skein is a thin shell on Pi. Pi builds the agent through a `ModelRegistry` and supports several providers. We used Pi's **`openai-codex`** provider, which authenticates with a **ChatGPT OAuth token** (Plus/Pro subscription). *Not* the standalone Codex CLI, and *not* a raw API key.
@@ -234,6 +301,8 @@ Model: openai-codex/gpt-5.5 (api: openai-codex-responses)
 Note: internally Pi registers the provider as `openai-codex-responses` for the *API surface*, but the **provider string you set is `openai-codex`**. We verified this against source before trusting it. The cost figures in the usage summary are also a decent sanity check (a real paid model costs real fractions of a cent per turn; a free fallback won't bill the same way). **Always confirm from the logs that you got the model you configured.**
 
 ---
+
+<a id="github" />
 
 ## 4) GitHub: a bot account + a fine-grained PAT (the org-ownership trap)
 
@@ -318,6 +387,8 @@ gh auth setup-git
 `--with-token` avoids the browser/device flow entirely and persists `hosts.yml` to your mounted `/root/.config/gh` volume.
 
 ---
+
+<a id="compose" />
 
 ## 5) The Compose stack, volumes, and persona files
 
@@ -404,6 +475,8 @@ Never commit or push to     ← the word `main` had vanished
 
 ---
 
+<a id="behavior" />
+
 ## 6) Behavior tuning (threading, the ack reaction, the double-post bug, hiding "Thinking", concise)
 
 This is where Skein's "ambient mom" heritage shows, and where you'll do real source patches. We kept every edit surgical and saved as a re-applyable `.diff`, because building from local source means you're maintaining a small fork, and patches won't carry across a SHA bump automatically.
@@ -458,6 +531,8 @@ Add a short **Response style** section to `IDENTITY.md`: concise/direct by defau
 
 ---
 
+<a id="skills" />
+
 ## 7) Skills and self-improvement
 
 The agent can be extended, and can extend *itself*, with **skills**.
@@ -495,6 +570,8 @@ command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "--skills=/
 
 ---
 
+<a id="operate" />
+
 ## 8) How to watch it / operate it
 
 - **Health & status:** `GET /health` (used by the healthcheck) and `GET /status` (e.g. `idle`). Both on the internal `3002`.
@@ -511,6 +588,8 @@ command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "--skills=/
 - **Backfill warnings are expected.** With `im:read` (list) but not `im:history`, you'll see `Failed to backfill #DM:…` warnings. That's the bot *declining* to read DM history, exactly the "no DMs" posture you want, not an error.
 
 ---
+
+<a id="gotchas" />
 
 ## 9) Gotchas roundup: "things that cost me an hour"
 
@@ -537,6 +616,8 @@ A condensed checklist of every trap above, in one place:
 
 ---
 
+<a id="security" />
+
 ## Security posture (read before you widen it)
 
 We accepted `--sandbox=host` for a single-channel v1: the agent runs bash as **root inside the container**, holding the GitHub PAT and the model OAuth token, while reading **untrusted** Slack/PR content. A successful prompt injection isn't "a bad PR." It's arbitrary code execution as root in that container. We deemed this acceptable for a *single trusted channel*, *our own repos*, with a *2-repo-scoped PAT* and *server-side branch protection* as the hard backstop.
@@ -548,6 +629,8 @@ Before you widen past one channel, the upgrades that matter:
 - **Never paste real secrets into anything that logs.** During setup a screenshot exposed our app's Client Secret, Signing Secret, and Verification Token into a chat transcript. For a Socket Mode app none of those three are even used, but once captured, regenerate them for hygiene. Treat any transcript that touched a token as sensitive.
 
 ---
+
+<a id="wrapup" />
 
 ## 10) Wrap-up + upstreaming
 

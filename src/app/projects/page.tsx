@@ -34,12 +34,12 @@ const projects = [
     },
   },
   {
-    name: 'troublemaker',
+    name: 'skein',
     description:
       'Mom, liberated. Multi-platform AI agent runtime.',
     link: {
-      href: 'https://github.com/mjaverto/troublemaker',
-      label: 'github.com/mjaverto/troublemaker',
+      href: 'https://github.com/mjaverto/skein',
+      label: 'github.com/mjaverto/skein',
     },
   },
   {

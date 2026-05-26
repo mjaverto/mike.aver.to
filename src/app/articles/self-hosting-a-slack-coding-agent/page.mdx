@@ -199,6 +199,7 @@ oauth_config:
       - channels:history
       - channels:read
       - chat:write
+      - files:read
       - users:read
       - groups:read
       - im:read
@@ -215,7 +216,7 @@ settings:
   token_rotation_enabled: false
 ```
 
-Note the scope list above already includes the ones we discovered **the hard way**. The manifest you'll find in most tutorials only lists four. More on why below.
+Note the scope list above already includes the ones we discovered **the hard way**. The manifest you'll find in most tutorials only lists four. More on why below. (`files:read` is the odd one out: it isn't needed to boot, but without it the agent can't see files or screenshots shared in a channel, so add it if you want the bot to act on attachments.)
 
 ### Two things the manifest can't do
 

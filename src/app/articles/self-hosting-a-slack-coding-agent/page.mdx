@@ -58,12 +58,12 @@ That's the whole system. Now let's build it, in the order that actually worked.
 
 ## Prerequisites
 
-- A Docker host you control, with Docker Engine + Compose v2. (I manage mine via Portainer, but plain `docker compose` is fine. Nothing here requires Portainer.)
-- SSH access to that host. If your user isn't root but *is* in the `docker` group, that's enough, because Docker runs as root, so you can create root-owned host directories via a throwaway container even without passwordless `sudo` (shown below).
-- A Slack workspace where you can create an app and install it.
-- A model credential. We reused an existing local ChatGPT/Codex OAuth login. You can also use a plain API key (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) if you'd rather not deal with OAuth.
-- A GitHub org (if your repos are org-owned; this matters enormously, see §4) and the ability to create a bot account and a fine-grained PAT.
-- Comfort reading a TypeScript source tree. You *will* end up grepping the runtime's source to answer questions the docs don't. Budget for it.
+- **A Docker host you control,** with Docker Engine + Compose v2. (I manage mine via Portainer, but plain `docker compose` is fine. Nothing here requires Portainer.)
+- **SSH access to that host.** If your user isn't root but *is* in the `docker` group, that's enough, because Docker runs as root, so you can create root-owned host directories via a throwaway container even without passwordless `sudo` (shown below).
+- **A Slack workspace** where you can create an app and install it.
+- **A model credential.** We reused an existing local ChatGPT/Codex OAuth login. You can also use a plain API key (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) if you'd rather not deal with OAuth.
+- **A GitHub org** (if your repos are org-owned; this matters enormously, see §4) and the ability to create a bot account and a fine-grained PAT.
+- **Comfort reading a TypeScript source tree.** You *will* end up grepping the runtime's source to answer questions the docs don't. Budget for it.
 
 ---
 

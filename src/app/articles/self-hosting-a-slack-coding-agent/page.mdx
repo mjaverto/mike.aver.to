@@ -19,15 +19,15 @@ export default function Page({ children }) {
   return <ArticleLayout article={article}>{children}</ArticleLayout>
 }
 
-I recently stood up a coding agent that lives in Slack. You `@mention` it in a channel, it answers in a thread, and it can do real work against our repos: read code, open pull requests, run commands. It runs entirely on our own Docker host — no SaaS, no third-party seeing our source. I'll call it **Kit** in this post, but the name doesn't matter; what matters is the recipe.
+I recently stood up a coding agent that lives in Slack. You `@mention` it in a channel, it answers in a thread, and it can do real work against our repos: read code, open pull requests, run commands. It runs entirely on our own Docker host. No SaaS, no third party seeing our source. I'll call it **Kit** in this post, but the name doesn't matter; what matters is the recipe.
 
-This is the battle-tested version of that recipe. It is not theoretical. Almost every section below has a "this cost me an hour" story attached, and I've kept those in deliberately, because the gotchas *are* the value. The happy path is short. The detours are where you learn how the thing actually works.
+This is the battle-tested version of that recipe, not the theoretical one. Almost every section below has a "this cost me an hour" story attached, and I kept those in deliberately, because the gotchas *are* the value. The happy path is short. The detours are where you learn how the thing actually works.
 
-A quick aside, because the name is too good not to dwell on. A **skein** is a loosely wound coil of yarn — and, in the older birding sense, a flock of geese flying in loose formation. Both are exactly right for an agent like this: threads of conversation and execution wound together into one strand, and a thing that drifts alongside you in the channel, only tightening into formation when you actually call on it. (It also makes "untangling a skein" the most honest possible description of debugging it.)
+A quick aside, because the name is too good not to dwell on. A **skein** is a loosely wound coil of yarn. And, in the older birding sense, a flock of geese flying in loose formation. Both are exactly right for an agent like this: threads of conversation and execution wound together into one strand, and a thing that drifts alongside you in the channel, only tightening into formation when you actually call on it. (It also makes "untangling a skein" the most honest possible description of debugging it.)
 
-The runtime is **Skein** ([github.com/mjaverto/skein](https://github.com/mjaverto/skein)), an open-source Slack/Telegram agent shell. Skein is built on **Pi** (`@earendil-works/pi-agent-core`, whose binary is `crawdad`), and it's modeled on Mario Zechner's "mom" ambient-agent pattern — an agent that *watches* a channel and stays silent (`yield_no_action`) unless it's actually addressed. Everything here generalizes to any similar runtime; substitute names as needed.
+The runtime is **Skein** ([github.com/mjaverto/skein](https://github.com/mjaverto/skein)), an open-source Slack/Telegram agent shell. Skein is built on **Pi** (`@earendil-works/pi-agent-core`, whose binary is `crawdad`), and it's modeled on Mario Zechner's "mom" ambient-agent pattern: an agent that *watches* a channel and stays silent (`yield_no_action`) unless it's actually addressed. Everything here generalizes to any similar runtime; substitute names as needed.
 
-> **A note on what this post is not.** This is a generic how-to. I've genericized every org name, repo name, host, token, and custom emoji. Placeholders look like `xoxb-…`, `github_pat_…`, `your-host`, `your-org`, `your-org/app`, and `:ack:` for the acknowledgement emoji. Do not paste real secrets into anything that logs (including a chat with an AI assistant — more on that later).
+> **A note on what this post is not.** This is a generic how-to. I've genericized every org name, repo name, host, token, and custom emoji. Placeholders look like `xoxb-…`, `github_pat_…`, `your-host`, `your-org`, `your-org/app`, and `:ack:` for the acknowledgement emoji. Do not paste real secrets into anything that logs (including a chat with an AI assistant; more on that later).
 
 ---
 
@@ -35,7 +35,7 @@ The runtime is **Skein** ([github.com/mjaverto/skein](https://github.com/mjavert
 
 Picture three boxes and the wires between them:
 
-1. **A Docker container on your own host.** Inside it runs the Skein/Pi runtime as a single long-lived process (`crawdad`). It exposes an internal HTTP port (`3002`) with `/health` and `/status` endpoints, and it bind-mounts a `/data` working directory from the host so the agent's workspace, persona files, and skills survive container rebuilds. The container runs as **root** with `--sandbox=host` — meaning the agent's shell/tools run directly in the container as root. (That's a real security posture decision; we'll get to it.)
+1. **A Docker container on your own host.** Inside it runs the Skein/Pi runtime as a single long-lived process (`crawdad`). It exposes an internal HTTP port (`3002`) with `/health` and `/status` endpoints, and it bind-mounts a `/data` working directory from the host so the agent's workspace, persona files, and skills survive container rebuilds. The container runs as **root** with `--sandbox=host`, which means the agent's shell/tools run directly in the container as root. (That's a real security posture decision, and we'll get to it.)
 
 2. **Slack, over Socket Mode.** No public URL, no inbound webhook, no TLS termination. The container opens an *outbound* WebSocket to Slack using two tokens (an app-level `xapp-…` token and a bot `xoxb-…` token). This is ideal for a homelab / NAT'd host because nothing needs to be reachable from the internet. The app subscribes to the `app_mention` event; when someone `@mentions` the bot, Slack pushes the event down the socket.
 
@@ -59,19 +59,19 @@ That's the whole system. Now let's build it, in the order that actually worked.
 ## Prerequisites
 
 - A Docker host you control, with Docker Engine + Compose v2. (I manage mine via Portainer, but plain `docker compose` is fine. Nothing here requires Portainer.)
-- SSH access to that host. If your user isn't root but *is* in the `docker` group, that's enough — Docker runs as root, so you can create root-owned host directories via a throwaway container even without passwordless `sudo` (shown below).
+- SSH access to that host. If your user isn't root but *is* in the `docker` group, that's enough, because Docker runs as root, so you can create root-owned host directories via a throwaway container even without passwordless `sudo` (shown below).
 - A Slack workspace where you can create an app and install it.
 - A model credential. We reused an existing local ChatGPT/Codex OAuth login. You can also use a plain API key (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) if you'd rather not deal with OAuth.
-- A GitHub org (if your repos are org-owned — this matters enormously, see §4) and the ability to create a bot account and a fine-grained PAT.
-- Comfort with reading a TypeScript source tree. You *will* end up grepping the runtime's source to answer questions the docs don't. Budget for it.
+- A GitHub org (if your repos are org-owned; this matters enormously, see §4) and the ability to create a bot account and a fine-grained PAT.
+- Comfort reading a TypeScript source tree. You *will* end up grepping the runtime's source to answer questions the docs don't. Budget for it.
 
 ---
 
 ## 1) Stand up the runtime image (pinned and reproducible)
 
-### Pin to a SHA — and verify the Dockerfile actually honors it
+### Pin to a SHA, and verify the Dockerfile actually honors it
 
-We pinned Skein to a specific commit SHA (call it `<SHA>`). The instinct is right; the execution has a trap. The upstream Dockerfile **clones `--depth 1 HEAD`** — i.e. it bakes whatever is on `main` at *build time*, not your pinned SHA. So a `local/skein-kit:<SHA>` tag built from that Dockerfile is a lie: the tag says one thing, the contents are "latest main."
+We pinned Skein to a specific commit SHA (call it `<SHA>`). The instinct is right; the execution has a trap. The upstream Dockerfile **clones `--depth 1 HEAD`**, i.e. it bakes whatever is on `main` at *build time*, not your pinned SHA. So a `local/skein-kit:<SHA>` tag built from that Dockerfile is a lie: the tag says one thing, the contents are "latest main."
 
 The fix is to build from a **checked-out source tree** rather than a floating clone. Clone the repo on the host, `git checkout <SHA>`, then patch the Dockerfile to copy the local tree in:
 
@@ -82,7 +82,7 @@ COPY . /opt/skein
 WORKDIR /opt/skein
 ```
 
-Now `docker build` produces a genuinely reproducible image for that SHA. (The bundled "fat-skills" set floats the same way — note it.)
+Now `docker build` produces a genuinely reproducible image for that SHA. (The bundled "fat-skills" set floats the same way. Note it.)
 
 ### The healthcheck binary that isn't there
 
@@ -98,7 +98,7 @@ healthcheck:
 
 ### The entrypoint and the default adapter trap
 
-The entrypoint is `crawdad`. Critically, **the default adapter is Telegram polling.** If you don't override the command, your shiny Slack bot will quietly try to connect to Telegram. You must pass the Slack adapter explicitly. And when you override the `command:`, it's easy to drop the trailing working-directory argument (`/data`) — do that and the agent loses its workspace. The full, correct command is:
+The entrypoint is `crawdad`. Critically, **the default adapter is Telegram polling.** If you don't override the command, your shiny Slack bot will quietly try to connect to Telegram. You must pass the Slack adapter explicitly. And when you override the `command:`, it's easy to drop the trailing working-directory argument (`/data`). Do that and the agent loses its workspace. The full, correct command is:
 
 ```yaml
 command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "/data"]
@@ -106,7 +106,7 @@ command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "/data"]
 
 ### Container user
 
-The image runs as **root** by default. A lot of "helpful" advice (and our first plan) said to `chown 1000:1000` and mount into `/home/<user>/…`. That's wrong for this image — the process is root, `HOME=/root`, and the auth/creds live under `/root/.config/gh`, `/root/.pi/agent`, etc. Either keep root and mount into `/root/...`, or add a non-root user *in the Dockerfile build* (and if you go non-root, you'll have to fix permissions on `/root/.cache/puppeteer`, which is `0700`, or the bundled Chromium tools EACCES). We kept root for v1.
+The image runs as **root** by default. A lot of "helpful" advice (and our first plan) said to `chown 1000:1000` and mount into `/home/<user>/…`. That's wrong for this image. The process is root, `HOME=/root`, and the auth/creds live under `/root/.config/gh`, `/root/.pi/agent`, etc. Either keep root and mount into `/root/...`, or add a non-root user *in the Dockerfile build* (and if you go non-root, you'll have to fix permissions on `/root/.cache/puppeteer`, which is `0700`, or the bundled Chromium tools EACCES). We kept root for v1.
 
 ---
 
@@ -150,11 +150,11 @@ settings:
   token_rotation_enabled: false
 ```
 
-Note the scope list above already includes the ones we discovered **the hard way** — the manifest you'll find in most tutorials only lists four. More on why below.
+Note the scope list above already includes the ones we discovered **the hard way**. The manifest you'll find in most tutorials only lists four. More on why below.
 
 ### Two things the manifest can't do
 
-1. **App-level token.** After creating the app: **Basic Information → App-Level Tokens → Generate**, scope **`connections:write`**. This is your **`xapp-…`** token. Because `socket_mode_enabled: true`, this is required — it's the token used to *open the socket*, and if it lacks `connections:write` you'll get a `missing_scope` error the moment the adapter tries to connect.
+1. **App-level token.** After creating the app: **Basic Information → App-Level Tokens → Generate**, scope **`connections:write`**. This is your **`xapp-…`** token. Because `socket_mode_enabled: true`, this is required. It's the token used to *open the socket*, and if it lacks `connections:write` you'll get a `missing_scope` error the moment the adapter tries to connect.
 2. **Install + bot token.** **OAuth & Permissions → Install to Workspace** → copy the **Bot User OAuth Token** (`xoxb-…`).
 
 Map them to env vars:
@@ -168,14 +168,14 @@ Socket Mode is auto-selected by the runtime when **both** of these are present. 
 
 ### The scopes you'll discover the hard way
 
-Here is the single most time-consuming Slack lesson. We launched with the "obvious" four bot scopes (`app_mentions:read`, `channels:history`, `channels:read`, `chat:write`), the app installed cleanly, both tokens authenticated (`auth.test` succeeded) — and the adapter **still** crashed on connect with `missing_scope`.
+Here is the single most time-consuming Slack lesson. We launched with the "obvious" four bot scopes (`app_mentions:read`, `channels:history`, `channels:read`, `chat:write`), the app installed cleanly, both tokens authenticated (`auth.test` succeeded). And the adapter **still** crashed on connect with `missing_scope`.
 
 The cause: Skein's startup sequence (`initMetadata` in its shared `slack-base` adapter) does more than `auth.test`. Before it will connect, it runs, in order:
 
-1. `auth.test()` — no scope needed
-2. `users.list` — needs **`users:read`**
-3. `conversations.list` with `types: "public_channel,private_channel"` — needs `channels:read` (you have it) **plus `groups:read`**
-4. `conversations.list` with `types: "im"` — needs **`im:read`**
+1. `auth.test()`, no scope needed
+2. `users.list`, needs **`users:read`**
+3. `conversations.list` with `types: "public_channel,private_channel"`, needs `channels:read` (you have it) **plus `groups:read`**
+4. `conversations.list` with `types: "im"`, needs **`im:read`**
 
 These run together at boot, and it aborts on the *first* missing scope. So the real minimum scope set just to *start* is:
 
@@ -186,11 +186,11 @@ users:read, groups:read, im:read
 
 Plus `reactions:write` if you want the acknowledgement emoji (§6).
 
-**Intent vs. reality caveat worth understanding:** `groups:read` + `im:read` let the bot *enumerate* private channels and DMs. They are **list** scopes, not **history** scopes — the bot still cannot read private/DM message *content* (you didn't grant `groups:history` / `im:history`, and `channels:history` stays public-only). The runtime hard-codes those `conversations.list` calls at startup, so it cannot boot without the list scopes. If you truly need "public-only, can't even see private channels exist," that requires a small patch to the adapter. For most people the practical guardrail is: **don't invite the bot to private channels**, and it has no private/DM history access regardless.
+**Intent vs. reality caveat worth understanding:** `groups:read` + `im:read` let the bot *enumerate* private channels and DMs. They are **list** scopes, not **history** scopes. The bot still cannot read private/DM message *content* (you didn't grant `groups:history` / `im:history`, and `channels:history` stays public-only). The runtime hard-codes those `conversations.list` calls at startup, so it cannot boot without the list scopes. If you truly need "public-only, can't even see private channels exist," that requires a small patch to the adapter. For most people the practical guardrail is simpler: **don't invite the bot to private channels**, and it has no private/DM history access regardless.
 
 ### The reinstall gotcha
 
-When you *add* scopes to an already-installed app, the existing `xoxb-` token **does not automatically gain them** — you must **Reinstall to Workspace**. Confusingly, Slack often returns the *same token string* after a reinstall but with updated granted scopes. So "the token didn't change" does **not** mean "the reinstall didn't take." Verify the scopes on the token directly (`auth.test` and inspecting the granted scope list) rather than trusting the token string.
+When you *add* scopes to an already-installed app, the existing `xoxb-` token **does not automatically gain them**. You must **Reinstall to Workspace**. Confusingly, Slack often returns the *same token string* after a reinstall but with updated granted scopes. So "the token didn't change" does **not** mean "the reinstall didn't take." Verify the scopes on the token directly (`auth.test` and inspecting the granted scope list) rather than trusting the token string.
 
 ### Invite the bot
 
@@ -200,7 +200,7 @@ When you *add* scopes to an already-installed app, the existing `xoxb-` token **
 
 ## 3) Model auth (Pi's `openai-codex` provider via ChatGPT OAuth)
 
-Skein is a thin shell on Pi. Pi builds the agent through a `ModelRegistry` and supports several providers. We used Pi's **`openai-codex`** provider, which authenticates with a **ChatGPT OAuth token** (Plus/Pro subscription) — *not* the standalone Codex CLI, and *not* a raw API key.
+Skein is a thin shell on Pi. Pi builds the agent through a `ModelRegistry` and supports several providers. We used Pi's **`openai-codex`** provider, which authenticates with a **ChatGPT OAuth token** (Plus/Pro subscription). *Not* the standalone Codex CLI, and *not* a raw API key.
 
 Set the provider and model via env:
 
@@ -211,15 +211,15 @@ MOM_MODEL_ID=gpt-5.5
 
 The credential itself lives in `~/.pi/agent/auth.json`. Pi's `resolveApiKey()` reads the OAuth token from there and refreshes it on expiry, persisting the refreshed token back to that file. So the file you must **persist as a volume** is `~/.pi/agent` (inside the container, `/root/.pi/agent`).
 
-### Don't fight the headless OAuth — reuse an existing login
+### Don't fight the headless OAuth; reuse an existing login
 
 `pi /login` opens a browser OAuth flow and binds a callback on `localhost:1455`. That's **unreachable in a remote/headless container.** You have three options:
 
 - Run `pi /login` on a machine with a browser (e.g. your laptop) pointing `PI_AGENT_DIR` at a scratch dir, then copy the resulting `auth.json` into the container's auth volume (`chmod 600`).
 - `docker exec -it … pi /login` via a console that can proxy the browser (fiddly).
-- **Reuse an `auth.json` you already have.** This is what we did. If you've already logged Pi/Codex in locally, `~/.pi/agent/auth.json` already contains a live `openai-codex` OAuth entry — just copy it into the container's auth volume. No interactive login at all.
+- **Reuse an `auth.json` you already have.** This is what we did. If you've already logged Pi/Codex in locally, `~/.pi/agent/auth.json` already contains a live `openai-codex` OAuth entry. Just copy it into the container's auth volume. No interactive login at all.
 
-(If you'd rather skip OAuth entirely, set `MOM_MODEL_PROVIDER=openai` and supply `OPENAI_API_KEY` — but that changes which model you're billing and how.)
+(If you'd rather skip OAuth entirely, set `MOM_MODEL_PROVIDER=openai` and supply `OPENAI_API_KEY`, though that changes which model you're billing and how.)
 
 ### The gotcha that will silently ruin your day: wrong provider string → silent fallback
 
@@ -231,7 +231,7 @@ So you must **verify the loaded model at runtime**, not trust the config. The mo
 Model: openai-codex/gpt-5.5 (api: openai-codex-responses)
 ```
 
-Note: internally Pi registers the provider as `openai-codex-responses` for the *API surface*, but the **provider string you set is `openai-codex`** — we verified this against source before trusting it. The cost figures in the usage summary are also a decent sanity check (a real paid model costs real fractions of a cent per turn; a free fallback won't bill the same way). **Always confirm from the logs that you got the model you configured.**
+Note: internally Pi registers the provider as `openai-codex-responses` for the *API surface*, but the **provider string you set is `openai-codex`**. We verified this against source before trusting it. The cost figures in the usage summary are also a decent sanity check (a real paid model costs real fractions of a cent per turn; a free fallback won't bill the same way). **Always confirm from the logs that you got the model you configured.**
 
 ---
 
@@ -248,14 +248,14 @@ Don't wire the agent to *your* GitHub identity. Create a **dedicated bot account
 
 ### Fine-grained PAT over web-OAuth
 
-You might be tempted to just `gh auth login` inside the container via the web/device flow. **Don't** — that web flow grants gh's broad default scopes (`repo`, `read:org`, `gist`, **`workflow`**), i.e. a long-lived token that can reach every repo the account can touch and rewrite Actions workflows. Given we run `--sandbox=host` (agent runs bash as root, reads untrusted Slack/PR content, prompt-injectable), a broad long-lived token is exactly the risk to avoid.
+You might be tempted to just `gh auth login` inside the container via the web/device flow. **Don't.** That web flow grants gh's broad default scopes (`repo`, `read:org`, `gist`, **`workflow`**), i.e. a long-lived token that can reach every repo the account can touch and rewrite Actions workflows. Because we run `--sandbox=host` (agent runs bash as root, reads untrusted Slack/PR content, prompt-injectable), a broad long-lived token is exactly the risk to avoid.
 
 Instead, use a **fine-grained PAT** scoped to exactly the repos you need, with:
 
 - **Contents:** Read and write
 - **Pull requests:** Read and write
 - **Metadata:** Read-only (auto-added)
-- **Nothing else** — no Administration, no Workflows, no Secrets, no Account permissions.
+- **Nothing else.** No Administration, no Workflows, no Secrets, no Account permissions.
 
 ### THE BIG TRAP: a personal-account PAT cannot reach org-owned repos
 
@@ -267,11 +267,11 @@ gh api repos/your-org/company  → 404
 gh repo list your-org          → (empty)
 ```
 
-Note the symptom: **404, not 403 / permission-denied.** And `/user/repos` is empty. That 404-not-403 is the tell, and it's profoundly misleading — it looks like the repos don't exist, not like a permissions problem.
+Note the symptom: **404, not 403 / permission-denied.** And `/user/repos` is empty. That 404-not-403 is the tell, and it's profoundly misleading. It looks like the repos don't exist, not like a permissions problem.
 
-**Root cause:** a fine-grained PAT whose **Resource owner is a personal account** *cannot access organization-owned repos at all* — regardless of what role that account has on those repos. When you pick "All repositories" on a personal-owned token, "all" means "all repos the *personal account itself owns*" — which, for the org's repos, is **none**. So the token sees zero org repos and 404s every one of them.
+**Root cause:** a fine-grained PAT whose **Resource owner is a personal account** *cannot access organization-owned repos at all*, regardless of what role that account has on those repos. When you pick "All repositories" on a personal-owned token, "all" means "all repos the *personal account itself owns*," which, for the org's repos, is **none**. So the token sees zero org repos and 404s every one of them.
 
-Adding the bot as a collaborator/member is necessary but **not sufficient** — the *token's resource owner* is the thing that's wrong, and editing the existing token won't fix it. You need a new token owned by the org.
+Adding the bot as a collaborator/member is necessary but **not sufficient**. The *token's resource owner* is the thing that's wrong, and editing the existing token won't fix it. You need a new token owned by the org.
 
 **The fix, in order:**
 
@@ -284,9 +284,9 @@ Adding the bot as a collaborator/member is necessary but **not sufficient** — 
 
 After that, verify with `GET /repos/your-org/app` and confirm the response shows `"push": true`. Don't move on until you see `push: true` on each repo.
 
-> One related gotcha: the bot's token had `push` but not `admin`. That's correct and intended — but it means the bot **cannot edit branch protection**. Set branch protection from an admin account (see §8). `contents:write` *does* allow pushing directly to `main`, so server-side branch protection is the only real "never touch main" guardrail. Prose in a persona file is not a mechanism.
+> One related gotcha: the bot's token had `push` but not `admin`. That's correct and intended, but it means the bot **cannot edit branch protection**. Set branch protection from an admin account (see §8). `contents:write` *does* allow pushing directly to `main`, so server-side branch protection is the only real "never touch main" guardrail. Prose in a persona file is not a mechanism.
 
-### Wire `gh` as the git credential helper — mind the quotes
+### Wire `gh` as the git credential helper (mind the quotes)
 
 Persist `gh`'s auth so `git` uses it automatically. The cleanest path is a persisted `gitconfig` mounted into the container with a credential helper that delegates to `gh`. The config block is:
 
@@ -346,7 +346,7 @@ services:
       retries: 3
 ```
 
-### kit.env (placeholders — never commit this)
+### kit.env (placeholders; never commit this)
 
 ```bash
 # Slack (Socket Mode auto-selects when both are present)
@@ -373,9 +373,9 @@ docker run --rm -v /srv:/srv alpine sh -c '
 
 ### Persona files: IDENTITY.md / SOUL.md
 
-The agent's name, purpose, and behavioral rules come from persona files in the workspace (`/data/IDENTITY.md` and `/data/SOUL.md`) — **not** from env vars. Until you write them, the bot answers as the upstream default persona. So: write the persona files **before** the first mention, or your "first run" is an unconfigured agent with full tool access.
+The agent's name, purpose, and behavioral rules come from persona files in the workspace (`/data/IDENTITY.md` and `/data/SOUL.md`), **not** from env vars. Until you write them, the bot answers as the upstream default persona. So write the persona files **before** the first mention, or your "first run" is an unconfigured agent with full tool access.
 
-A persona file (sketch — keep yours short and direct):
+A persona file (sketch, keep yours short and direct):
 
 ```markdown
 # IDENTITY
@@ -400,32 +400,32 @@ When we first wrote `IDENTITY.md` through a tool, the write **silently stripped 
 Never commit or push to     ← the word `main` had vanished
 ```
 
-…and the references to `/worktrees/…`, `/repos/*`, `auth.json`, and `kit.env` were *gone*. The agent ran for a while with **partially-gutted rules** and nobody noticed, because the file looked fine at a glance. **Always re-read the persona file after writing it and confirm the backticked tokens survived.** This is exactly the kind of silent corruption that turns "never push to main" into "never push to" — a rule that no longer says anything.
+…and the references to `/worktrees/…`, `/repos/*`, `auth.json`, and `kit.env` were *gone*. The agent ran for a while with **partially-gutted rules** and nobody noticed, because the file looked fine at a glance. **Always re-read the persona file after writing it and confirm the backticked tokens survived.** This is the kind of silent corruption that turns "never push to main" into "never push to," a rule that no longer says anything.
 
 ---
 
 ## 6) Behavior tuning (threading, the ack reaction, the double-post bug, hiding "Thinking", concise)
 
-This is where Skein's "ambient mom" heritage shows, and where you'll do real source patches. We kept every edit surgical and saved as a re-applyable `.diff`, because building from local source means you're maintaining a small fork — patches won't carry across a SHA bump automatically.
+This is where Skein's "ambient mom" heritage shows, and where you'll do real source patches. We kept every edit surgical and saved as a re-applyable `.diff`, because building from local source means you're maintaining a small fork, and patches won't carry across a SHA bump automatically.
 
 ### Make it reply in a thread, not the channel
 
 Out of the box, the agent replied with a **new top-level channel message** instead of threading under the triggering message. The runtime *has* a thread-reply path; the fix is to thread unconditionally at the adapter level: set `thread_ts = e.thread_ts ?? e.ts` for the reply. A top-level mention then *starts* a thread on your message; a mention *inside* a thread stays in it. Doing this in code (not via persona instructions) makes it deterministic instead of "whatever the model felt like."
 
-### The `[direct mention]` signal — fixing the silent yield
+### The `[direct mention]` signal: fixing the silent yield
 
-Subtle and important. Skein is **ambient**: it can fire on channel messages and uses `yield_no_action` as a first-class "stay quiet" move. But the runtime **strips the `<@BOTID>` mention token** out of the text before the model sees it. So the model literally cannot tell, from the text, whether it was mentioned — and Slack delivers the mention as a user-ID token (`<@U0…> hello`), not the literal `@Kit`.
+Subtle and important. Skein is **ambient**: it can fire on channel messages and uses `yield_no_action` as a first-class "stay quiet" move. But the runtime **strips the `<@BOTID>` mention token** out of the text before the model sees it. So the model literally cannot tell, from the text, whether it was mentioned. And Slack delivers the mention as a user-ID token (`<@U0…> hello`), not the literal `@Kit`.
 
-We first tried to fix this in the persona ("only respond when explicitly @mentioned"). That **backfired**: the model looked for "@Kit" in the text, never found it (it was stripped), concluded "not a mention," and chose `yield_no_action` — so it stayed silent on *valid* mentions. The conservative guardrail was suppressing real replies.
+We first tried to fix this in the persona ("only respond when explicitly @mentioned"). That **backfired**: the model looked for "@Kit" in the text, never found it (it was stripped), concluded "not a mention," and chose `yield_no_action`, so it stayed silent on *valid* mentions. The conservative guardrail was suppressing real replies.
 
-The robust fix is a tiny code patch: in the `app_mention` handler, prefix the text the model sees with a `[direct mention]` marker (only for true mentions, not ambient messages). Then the persona can say "respond to `[direct mention]` in-thread; `yield_no_action` on ambient chatter" — and it actually works, *and* you don't get spam on ambient messages.
+The robust fix is a tiny code patch: in the `app_mention` handler, prefix the text the model sees with a `[direct mention]` marker (only for true mentions, not ambient messages). Then the persona can say "respond to `[direct mention]` in-thread; `yield_no_action` on ambient chatter," and it actually works, *and* you don't get spam on ambient messages.
 
 ### The double-post bug (worth its own paragraph)
 
 After the threading patch, mentions produced **two** messages: one correctly threaded, and one top-level. The root cause is genuinely subtle:
 
 - The threading patch threaded the **runtime's own harness messages** (the "working…"/"Thinking" placeholder and the harness final response).
-- But the agent *actually replies* by calling a tool — `send_message_to_channel` — which goes through a different code path (`postMessage()`) that was **never threaded.**
+- But the agent *actually replies* by calling a tool, `send_message_to_channel`, which goes through a different code path (`postMessage()`) that was **never threaded.**
 
 So you got the threaded harness message **and** a top-level post from the tool. (The logs confirmed the reply arrived via `[send_message_to_channel]`, not the harness path.)
 
@@ -435,11 +435,11 @@ The fix is a **per-channel "active thread" registry**:
 - For the duration of the run, `postMessage()` threads into the registered thread.
 - Clear the registration in a `.finally()` when the run ends.
 
-Result: every reply (tool-sent *and* harness) lands in the triggering thread; sends to *other* channels stay top-level; and because the window is scoped to one run, a later unrelated message in the same channel doesn't get wrongly threaded. The registry-plus-`.finally()` shape is the key — it ties the threading window to the lifetime of the run, not to a global flag.
+Result: every reply (tool-sent *and* harness) lands in the triggering thread; sends to *other* channels stay top-level; and because the window is scoped to one run, a later unrelated message in the same channel doesn't get wrongly threaded. The registry-plus-`.finally()` shape is the key. It ties the threading window to the lifetime of the run, not to a global flag.
 
 ### The instant ack reaction
 
-A great "I heard you" signal is an emoji reaction the instant you're mentioned. Do this in the **handler**, not the persona — you want it to fire reliably on *every* mention, not depend on the model choosing to. In the `app_mention` handler, call `reactions.add` with your emoji (e.g. `:ack:`), wrapped in try/catch so a failure never breaks a run.
+A great "I heard you" signal is an emoji reaction the instant you're mentioned. Do this in the **handler**, not the persona, because you want it to fire reliably on *every* mention, not depend on the model choosing to. In the `app_mention` handler, call `reactions.add` with your emoji (e.g. `:ack:`), wrapped in try/catch so a failure never breaks a run.
 
 Two Slack-side prerequisites for the reaction to actually show:
 
@@ -450,17 +450,17 @@ Until both are in place, the code no-ops gracefully (logs a warning). If you mak
 
 ### Hide the "Thinking" placeholder
 
-There's a built-in toggle for this — no rebuild needed. Set `"verbose": false` in `/data/settings.json`. The "working…" placeholder is gated by `verbose`; with it off, the placeholder is never posted while the real reply still goes out exactly once, in-thread. Threading, the active-thread registry, and the reaction are all untouched.
+There's a built-in toggle for this, no rebuild needed. Set `"verbose": false` in `/data/settings.json`. The "working…" placeholder is gated by `verbose`; with it off, the placeholder is never posted while the real reply still goes out exactly once, in-thread. Threading, the active-thread registry, and the reaction are all untouched.
 
 ### Concise by default
 
-Add a short **Response style** section to `IDENTITY.md`: concise/direct by default, expand only on request or when the task genuinely needs it. (Hot-reloads — no restart.)
+Add a short **Response style** section to `IDENTITY.md`: concise/direct by default, expand only on request or when the task genuinely needs it. (Hot-reloads, no restart.)
 
 ---
 
 ## 7) Skills and self-improvement
 
-The agent can be extended — and can extend *itself* — with **skills**.
+The agent can be extended, and can extend *itself*, with **skills**.
 
 A skill is a directory `/data/skills/<name>/` containing a `SKILL.md`: YAML frontmatter with `name` + `description`, then a Markdown body, plus any helper scripts beside it. Minimal example:
 
@@ -478,10 +478,10 @@ Key operational facts:
 
 - **Hot-reloaded per message** by directory mtime. No restart needed to add or edit a skill.
 - **Persisted on the host volume** (`/srv/kit/data/skills` → `/data/skills`), so skills survive rebuilds.
-- **Reference helper scripts by full path** (`bash /data/skills/<name>/run.sh`). A symlink into `/usr/local/bin` won't survive a rebuild — that path isn't a mounted volume.
+- **Reference helper scripts by full path** (`bash /data/skills/<name>/run.sh`). A symlink into `/usr/local/bin` won't survive a rebuild, because that path isn't a mounted volume.
 - **The agent can author its own skills.** It has bash + file-write tools and `/data` is writable, so it can `mkdir -p /data/skills/<name> && write SKILL.md` and the new skill loads on the next turn. You can even bake this into the persona ("when you hit a recurring task, write yourself a skill under `/data/skills`") so it does it proactively.
 
-We wrote two repo-map skills — one per repo — whose `description` lines explicitly distinguish the repos, so when a Slack user says "update the site" the agent loads the right one and knows the layout and commands without the user needing to understand the repo split.
+We wrote two repo-map skills, one per repo, whose `description` lines explicitly distinguish the repos, so when a Slack user says "update the site" the agent loads the right one and knows the layout and commands without the user needing to understand the repo split.
 
 ### Enabling the bundled "fat-skills"
 
@@ -491,7 +491,7 @@ Skein ships a "fat-skills" set (browser tools, PDF generation, etc.) in the imag
 command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "--skills=/opt/fat-skills", "/data"]
 ```
 
-`--skills` is repeatable and **adds dirs at lowest priority** — your workspace `/data/skills` still loads and **wins name collisions**, so your own skills are never shadowed by the bundled set. On boot you'll see something like `Extra skills dirs: /opt/fat-skills`.
+`--skills` is repeatable and **adds dirs at lowest priority**, so your workspace `/data/skills` still loads and **wins name collisions**, and your own skills are never shadowed by the bundled set. On boot you'll see something like `Extra skills dirs: /opt/fat-skills`.
 
 ---
 
@@ -507,12 +507,12 @@ command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "--skills=/
   ```
   (If `bash` isn't present, use `sh`.)
 - **Restart vs. rebuild:** persona/skills/`settings.json` changes hot-reload or need only a `restart` (or `recreate`). Source patches need a rebuild with a new tag (we used `<SHA>-kit2`, `-kit3`, … so the tag never lies about what's in it).
-- **Branch protection is the real "never touch main."** Set it server-side from an admin account (require a PR; ensure the bot account is **not** a bypass actor). The bot's PAT lacks `admin`, so it can't change this — which is the point.
-- **Backfill warnings are expected.** With `im:read` (list) but not `im:history`, you'll see `Failed to backfill #DM:…` warnings. That's the bot *declining* to read DM history — exactly the "no DMs" posture you want, not an error.
+- **Branch protection is the real "never touch main."** Set it server-side from an admin account (require a PR; ensure the bot account is **not** a bypass actor). The bot's PAT lacks `admin`, so it can't change this. Which is the point.
+- **Backfill warnings are expected.** With `im:read` (list) but not `im:history`, you'll see `Failed to backfill #DM:…` warnings. That's the bot *declining* to read DM history, exactly the "no DMs" posture you want, not an error.
 
 ---
 
-## 9) Gotchas roundup — "things that cost me an hour"
+## 9) Gotchas roundup: "things that cost me an hour"
 
 A condensed checklist of every trap above, in one place:
 
@@ -521,38 +521,38 @@ A condensed checklist of every trap above, in one place:
 3. **Default adapter is Telegram.** Override `command:` to `--adapter=slack:socket`, and don't drop the trailing `/data`.
 4. **Container is root.** Mount creds into `/root/...`, not `/home/<user>/...`.
 5. **Slack scopes are bigger than they look.** Startup calls `users.list`, `conversations.list` → you need `users:read`, `groups:read`, `im:read` on top of the obvious four, or it crashes with `missing_scope` on connect.
-6. **`connections:write` lives on the *app-level* token**, and missing it also throws `missing_scope`. Two different tokens, two different `missing_scope` causes — check both.
-7. **Adding scopes requires Reinstall**, and the token string may not change — verify the scopes, not the string.
+6. **`connections:write` lives on the *app-level* token**, and missing it also throws `missing_scope`. Two different tokens, two different `missing_scope` causes. Check both.
+7. **Adding scopes requires Reinstall**, and the token string may not change. Verify the scopes, not the string.
 8. **Wrong model provider silently falls back.** Verify the loaded model from the logs; don't trust the config.
 9. **`pi /login` isn't headless** (binds `localhost:1455`). Reuse/copy an `auth.json` instead.
-10. **A personal-account fine-grained PAT can't reach org repos** — and you get **404, not 403**, with an empty `/user/repos`. Resource owner must be the **org**; bot must be an org member; an org owner may need to approve the token. Verify `push: true`.
+10. **A personal-account fine-grained PAT can't reach org repos**, and you get **404, not 403**, with an empty `/user/repos`. Resource owner must be the **org**; bot must be an org member; an org owner may need to approve the token. Verify `push: true`.
 11. **`gh auth login` web flow grants broad scopes** (`repo`, `workflow`). Use a scoped fine-grained PAT (`--with-token`) instead.
 12. **The gitconfig subsection needs quotes:** `[credential "https://github.com"]`. Without them, raw `git` throws `bad config line 1`.
 13. **Writing the persona file can silently strip backtick code-spans**, gutting your rules. Re-read after writing.
 14. **Persona-based "only respond when mentioned" backfires** because the runtime strips the mention token before the model sees it → it yields on valid mentions. Patch in a `[direct mention]` marker instead.
 15. **The double-post bug:** the agent replies via a `send_message_to_channel` tool (`postMessage`, un-threaded), separate from the harness path you threaded. Fix with a per-channel active-thread registry cleared in `.finally()`.
 16. **Reaction needs both** `reactions:write` (+ reinstall) *and* the emoji to exist, or you get `invalid_name`.
-17. **Skills reference scripts by full path** — symlinks don't survive rebuilds.
+17. **Skills reference scripts by full path.** Symlinks don't survive rebuilds.
 18. **`branch protection` ≠ a persona rule.** `contents:write` can push to `main`; only server-side protection stops it.
 
 ---
 
 ## Security posture (read before you widen it)
 
-We accepted `--sandbox=host` for a single-channel v1: the agent runs bash as **root inside the container**, holding the GitHub PAT and the model OAuth token, while reading **untrusted** Slack/PR content. A successful prompt injection isn't "a bad PR" — it's arbitrary code execution as root in that container. We deemed this acceptable for a *single trusted channel*, *our own repos*, with a *2-repo-scoped PAT* and *server-side branch protection* as the hard backstop.
+We accepted `--sandbox=host` for a single-channel v1: the agent runs bash as **root inside the container**, holding the GitHub PAT and the model OAuth token, while reading **untrusted** Slack/PR content. A successful prompt injection isn't "a bad PR." It's arbitrary code execution as root in that container. We deemed this acceptable for a *single trusted channel*, *our own repos*, with a *2-repo-scoped PAT* and *server-side branch protection* as the hard backstop.
 
 Before you widen past one channel, the upgrades that matter:
 
 - An **egress allowlist** (GitHub / Slack / model-provider only) to cap exfiltration.
-- A **GitHub App** instead of a PAT — it mints short-lived (≈1h) installation tokens under its own `…[bot]` identity, so a leaked *token* dies in an hour. The catch: the runtime consumes a static `GITHUB_TOKEN` read once at startup, so an App needs a small refresher (a `GIT_ASKPASS`/`gh` shim, or a sidecar that re-mints the token), which is why we deferred it for v1.
-- **Never paste real secrets into anything that logs.** During setup a screenshot exposed our app's Client Secret, Signing Secret, and Verification Token into a chat transcript. For a Socket Mode app none of those three are even used — but once captured, regenerate them for hygiene. Treat any transcript that touched a token as sensitive.
+- A **GitHub App** instead of a PAT. It mints short-lived (≈1h) installation tokens under its own `…[bot]` identity, so a leaked *token* dies in an hour. The catch: the runtime consumes a static `GITHUB_TOKEN` read once at startup, so an App needs a small refresher (a `GIT_ASKPASS`/`gh` shim, or a sidecar that re-mints the token), which is why we deferred it for v1.
+- **Never paste real secrets into anything that logs.** During setup a screenshot exposed our app's Client Secret, Signing Secret, and Verification Token into a chat transcript. For a Socket Mode app none of those three are even used, but once captured, regenerate them for hygiene. Treat any transcript that touched a token as sensitive.
 
 ---
 
 ## 10) Wrap-up + upstreaming
 
-What you end up with: a coding agent in Slack that reacts instantly, replies in a clean thread, runs on a model you control via your own auth, pushes PRs as a dedicated bot identity scoped to exactly the repos you choose, hot-reloads skills (and writes its own), and never speaks unless addressed — all on a single self-hosted container with no inbound network surface.
+What you end up with: a coding agent in Slack that reacts instantly, replies in a clean thread, runs on a model you control via your own auth, pushes PRs as a dedicated bot identity scoped to exactly the repos you choose, hot-reloads skills (and writes its own), and never speaks unless addressed. All on a single self-hosted container with no inbound network surface.
 
-Two of the fixes above are genuinely general-purpose, not specific to us, so we **upstreamed them**: the `[direct mention]` signal and the auto-threaded replies. (The Dockerfile pin and the hardcoded ack-emoji we kept local; the emoji is a clean follow-up if made env-configurable.) A lesson there too: our first PR carried the **same double-post bug** — it rewired the harness post path but not the tool's `postMessage`, so anyone deploying it and replying via the tool would see the double post. We pushed the `activeThreads` fix onto the PR so it was correct *before* review. If you patch a runtime to fix a class of bug, check whether your fix is complete across *all* the code paths that emit a message — not just the one you noticed first.
+Two of the fixes above are genuinely general-purpose, not specific to us, so we **upstreamed them**: the `[direct mention]` signal and the auto-threaded replies. (The Dockerfile pin and the hardcoded ack-emoji we kept local; the emoji is a clean follow-up if made env-configurable.) A lesson there too: our first PR carried the **same double-post bug**. It rewired the harness post path but not the tool's `postMessage`, so anyone deploying it and replying via the tool would see the double post. We pushed the `activeThreads` fix onto the PR so it was correct *before* review. If you patch a runtime to fix a class of bug, check whether your fix is complete across *all* the code paths that emit a message, not just the one you noticed first.
 
 If you build this, keep your patches surgical and saved as a re-applyable `.diff` against the pinned SHA. You're maintaining a small fork, and a clean diff is the difference between a five-minute SHA bump and an afternoon of re-discovery.

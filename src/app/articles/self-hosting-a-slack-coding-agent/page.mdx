@@ -23,6 +23,8 @@ I recently stood up a coding agent that lives in Slack. You `@mention` it in a c
 
 This is the battle-tested version of that recipe. It is not theoretical. Almost every section below has a "this cost me an hour" story attached, and I've kept those in deliberately, because the gotchas *are* the value. The happy path is short. The detours are where you learn how the thing actually works.
 
+A quick aside, because the name is too good not to dwell on. A **skein** is a loosely wound coil of yarn — and, in the older birding sense, a flock of geese flying in loose formation. Both are exactly right for an agent like this: threads of conversation and execution wound together into one strand, and a thing that drifts alongside you in the channel, only tightening into formation when you actually call on it. (It also makes "untangling a skein" the most honest possible description of debugging it.)
+
 The runtime is **Skein** ([github.com/mjaverto/skein](https://github.com/mjaverto/skein)), an open-source Slack/Telegram agent shell. Skein is built on **Pi** (`@earendil-works/pi-agent-core`, whose binary is `crawdad`), and it's modeled on Mario Zechner's "mom" ambient-agent pattern — an agent that *watches* a channel and stays silent (`yield_no_action`) unless it's actually addressed. Everything here generalizes to any similar runtime; substitute names as needed.
 
 > **A note on what this post is not.** This is a generic how-to. I've genericized every org name, repo name, host, token, and custom emoji. Placeholders look like `xoxb-…`, `github_pat_…`, `your-host`, `your-org`, `your-org/app`, and `:ack:` for the acknowledgement emoji. Do not paste real secrets into anything that logs (including a chat with an AI assistant — more on that later).

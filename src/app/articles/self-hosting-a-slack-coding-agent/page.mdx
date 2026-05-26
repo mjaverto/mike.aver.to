@@ -23,7 +23,7 @@ I recently stood up a coding agent that lives in Slack. You `@mention` it in a c
 
 This is the battle-tested version of that recipe. It is not theoretical. Almost every section below has a "this cost me an hour" story attached, and I've kept those in deliberately, because the gotchas *are* the value. The happy path is short. The detours are where you learn how the thing actually works.
 
-The runtime is **Troublemaker** ([github.com/tinyfatco/troublemaker](https://github.com/tinyfatco/troublemaker)), an open-source Slack/Telegram agent shell. Troublemaker is built on **Pi** (`@earendil-works/pi-agent-core`, whose binary is `crawdad`), and it's modeled on Mario Zechner's "mom" ambient-agent pattern — an agent that *watches* a channel and stays silent (`yield_no_action`) unless it's actually addressed. Everything here generalizes to any similar runtime; substitute names as needed.
+The runtime is **Skein** ([github.com/mjaverto/skein](https://github.com/mjaverto/skein)), an open-source Slack/Telegram agent shell. Skein is built on **Pi** (`@earendil-works/pi-agent-core`, whose binary is `crawdad`), and it's modeled on Mario Zechner's "mom" ambient-agent pattern — an agent that *watches* a channel and stays silent (`yield_no_action`) unless it's actually addressed. Everything here generalizes to any similar runtime; substitute names as needed.
 
 > **A note on what this post is not.** This is a generic how-to. I've genericized every org name, repo name, host, token, and custom emoji. Placeholders look like `xoxb-…`, `github_pat_…`, `your-host`, `your-org`, `your-org/app`, and `:ack:` for the acknowledgement emoji. Do not paste real secrets into anything that logs (including a chat with an AI assistant — more on that later).
 
@@ -33,7 +33,7 @@ The runtime is **Troublemaker** ([github.com/tinyfatco/troublemaker](https://git
 
 Picture three boxes and the wires between them:
 
-1. **A Docker container on your own host.** Inside it runs the Troublemaker/Pi runtime as a single long-lived process (`crawdad`). It exposes an internal HTTP port (`3002`) with `/health` and `/status` endpoints, and it bind-mounts a `/data` working directory from the host so the agent's workspace, persona files, and skills survive container rebuilds. The container runs as **root** with `--sandbox=host` — meaning the agent's shell/tools run directly in the container as root. (That's a real security posture decision; we'll get to it.)
+1. **A Docker container on your own host.** Inside it runs the Skein/Pi runtime as a single long-lived process (`crawdad`). It exposes an internal HTTP port (`3002`) with `/health` and `/status` endpoints, and it bind-mounts a `/data` working directory from the host so the agent's workspace, persona files, and skills survive container rebuilds. The container runs as **root** with `--sandbox=host` — meaning the agent's shell/tools run directly in the container as root. (That's a real security posture decision; we'll get to it.)
 
 2. **Slack, over Socket Mode.** No public URL, no inbound webhook, no TLS termination. The container opens an *outbound* WebSocket to Slack using two tokens (an app-level `xapp-…` token and a bot `xoxb-…` token). This is ideal for a homelab / NAT'd host because nothing needs to be reachable from the internet. The app subscribes to the `app_mention` event; when someone `@mentions` the bot, Slack pushes the event down the socket.
 
@@ -44,7 +44,7 @@ The data flow on a single mention:
 ```
 You: "@Kit who are you?" in #dev
    → Slack pushes app_mention down the Socket Mode WebSocket
-   → Troublemaker reacts with :ack: (instant "received" signal)
+   → Skein reacts with :ack: (instant "received" signal)
    → Pi runs a turn using the model (gpt-class via Codex OAuth)
    → agent decides: respond or yield_no_action
    → reply is posted back IN A THREAD on your message
@@ -69,15 +69,15 @@ That's the whole system. Now let's build it, in the order that actually worked.
 
 ### Pin to a SHA — and verify the Dockerfile actually honors it
 
-We pinned Troublemaker to a specific commit SHA (call it `<SHA>`). The instinct is right; the execution has a trap. The upstream Dockerfile **clones `--depth 1 HEAD`** — i.e. it bakes whatever is on `main` at *build time*, not your pinned SHA. So a `local/troublemaker-kit:<SHA>` tag built from that Dockerfile is a lie: the tag says one thing, the contents are "latest main."
+We pinned Skein to a specific commit SHA (call it `<SHA>`). The instinct is right; the execution has a trap. The upstream Dockerfile **clones `--depth 1 HEAD`** — i.e. it bakes whatever is on `main` at *build time*, not your pinned SHA. So a `local/skein-kit:<SHA>` tag built from that Dockerfile is a lie: the tag says one thing, the contents are "latest main."
 
 The fix is to build from a **checked-out source tree** rather than a floating clone. Clone the repo on the host, `git checkout <SHA>`, then patch the Dockerfile to copy the local tree in:
 
 ```dockerfile
-# instead of:  RUN git clone --depth 1 https://github.com/tinyfatco/troublemaker .
+# instead of:  RUN git clone --depth 1 https://github.com/mjaverto/skein .
 # do this, against a tree you've already checked out at <SHA>:
-COPY . /opt/troublemaker
-WORKDIR /opt/troublemaker
+COPY . /opt/skein
+WORKDIR /opt/skein
 ```
 
 Now `docker build` produces a genuinely reproducible image for that SHA. (The bundled "fat-skills" set floats the same way — note it.)
@@ -168,7 +168,7 @@ Socket Mode is auto-selected by the runtime when **both** of these are present. 
 
 Here is the single most time-consuming Slack lesson. We launched with the "obvious" four bot scopes (`app_mentions:read`, `channels:history`, `channels:read`, `chat:write`), the app installed cleanly, both tokens authenticated (`auth.test` succeeded) — and the adapter **still** crashed on connect with `missing_scope`.
 
-The cause: Troublemaker's startup sequence (`initMetadata` in its shared `slack-base` adapter) does more than `auth.test`. Before it will connect, it runs, in order:
+The cause: Skein's startup sequence (`initMetadata` in its shared `slack-base` adapter) does more than `auth.test`. Before it will connect, it runs, in order:
 
 1. `auth.test()` — no scope needed
 2. `users.list` — needs **`users:read`**
@@ -198,7 +198,7 @@ When you *add* scopes to an already-installed app, the existing `xoxb-` token **
 
 ## 3) Model auth (Pi's `openai-codex` provider via ChatGPT OAuth)
 
-Troublemaker is a thin shell on Pi. Pi builds the agent through a `ModelRegistry` and supports several providers. We used Pi's **`openai-codex`** provider, which authenticates with a **ChatGPT OAuth token** (Plus/Pro subscription) — *not* the standalone Codex CLI, and *not* a raw API key.
+Skein is a thin shell on Pi. Pi builds the agent through a `ModelRegistry` and supports several providers. We used Pi's **`openai-codex`** provider, which authenticates with a **ChatGPT OAuth token** (Plus/Pro subscription) — *not* the standalone Codex CLI, and *not* a raw API key.
 
 Set the provider and model via env:
 
@@ -323,9 +323,9 @@ gh auth setup-git
 
 ```yaml
 services:
-  kit-troublemaker:
-    image: local/troublemaker-kit:<SHA>
-    container_name: kit-troublemaker
+  kit-skein:
+    image: local/skein-kit:<SHA>
+    container_name: kit-skein
     restart: unless-stopped
     # root + host sandbox: the agent's tools run as root in-container.
     # Understand the security implications (see "Security posture" below).
@@ -404,7 +404,7 @@ Never commit or push to     ← the word `main` had vanished
 
 ## 6) Behavior tuning (threading, the ack reaction, the double-post bug, hiding "Thinking", concise)
 
-This is where Troublemaker's "ambient mom" heritage shows, and where you'll do real source patches. We kept every edit surgical and saved as a re-applyable `.diff`, because building from local source means you're maintaining a small fork — patches won't carry across a SHA bump automatically.
+This is where Skein's "ambient mom" heritage shows, and where you'll do real source patches. We kept every edit surgical and saved as a re-applyable `.diff`, because building from local source means you're maintaining a small fork — patches won't carry across a SHA bump automatically.
 
 ### Make it reply in a thread, not the channel
 
@@ -412,7 +412,7 @@ Out of the box, the agent replied with a **new top-level channel message** inste
 
 ### The `[direct mention]` signal — fixing the silent yield
 
-Subtle and important. Troublemaker is **ambient**: it can fire on channel messages and uses `yield_no_action` as a first-class "stay quiet" move. But the runtime **strips the `<@BOTID>` mention token** out of the text before the model sees it. So the model literally cannot tell, from the text, whether it was mentioned — and Slack delivers the mention as a user-ID token (`<@U0…> hello`), not the literal `@Kit`.
+Subtle and important. Skein is **ambient**: it can fire on channel messages and uses `yield_no_action` as a first-class "stay quiet" move. But the runtime **strips the `<@BOTID>` mention token** out of the text before the model sees it. So the model literally cannot tell, from the text, whether it was mentioned — and Slack delivers the mention as a user-ID token (`<@U0…> hello`), not the literal `@Kit`.
 
 We first tried to fix this in the persona ("only respond when explicitly @mentioned"). That **backfired**: the model looked for "@Kit" in the text, never found it (it was stripped), concluded "not a mention," and chose `yield_no_action` — so it stayed silent on *valid* mentions. The conservative guardrail was suppressing real replies.
 
@@ -483,7 +483,7 @@ We wrote two repo-map skills — one per repo — whose `description` lines expl
 
 ### Enabling the bundled "fat-skills"
 
-Troublemaker ships a "fat-skills" set (browser tools, PDF generation, etc.) in the image, but they are **not loaded into the prompt** unless you add a `--skills` dir to the command:
+Skein ships a "fat-skills" set (browser tools, PDF generation, etc.) in the image, but they are **not loaded into the prompt** unless you add a `--skills` dir to the command:
 
 ```yaml
 command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "--skills=/opt/fat-skills", "/data"]
@@ -500,7 +500,7 @@ command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "--skills=/
 - **Exec into the container** to inspect creds and the workspace. It runs as root, so:
   ```bash
   ssh your-host
-  docker compose -f /srv/kit/config/docker-compose.yml exec kit-troublemaker bash
+  docker compose -f /srv/kit/config/docker-compose.yml exec kit-skein bash
   # HOME=/root; gh creds at /root/.config/gh, Pi auth at /root/.pi/agent, workspace at /data
   ```
   (If `bash` isn't present, use `sh`.)
@@ -514,7 +514,7 @@ command: ["--adapter=slack:socket", "--sandbox=host", "--port=3002", "--skills=/
 
 A condensed checklist of every trap above, in one place:
 
-1. **The Dockerfile floats `HEAD`.** A SHA tag built from the upstream Dockerfile is a lie. Build from a checked-out tree (`COPY . /opt/troublemaker`).
+1. **The Dockerfile floats `HEAD`.** A SHA tag built from the upstream Dockerfile is a lie. Build from a checked-out tree (`COPY . /opt/skein`).
 2. **`curl` isn't in the image.** Healthcheck on `wget -qO-`, not `curl`.
 3. **Default adapter is Telegram.** Override `command:` to `--adapter=slack:socket`, and don't drop the trailing `/data`.
 4. **Container is root.** Mount creds into `/root/...`, not `/home/<user>/...`.

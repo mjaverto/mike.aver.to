@@ -48,13 +48,12 @@ const groups = [
       ),
       project(
         'ace',
-        'Agent Conversation Exporter — render Claude Code, Codex, Pi, and opencode transcripts to Markdown.',
+        'Agent Conversation Exporter: render Claude Code, Codex, Pi, and opencode transcripts to Markdown.',
       ),
       project(
         'squid-proxy-lockdown',
         "OpenClaw skill: monitor and lock down your AI agent's outbound network traffic with Squid.",
       ),
-      project('skein', 'Mom, liberated. Multi-platform AI agent runtime.'),
     ],
   },
   {
@@ -79,11 +78,6 @@ const groups = [
         'CodexBar',
         'Added a Claude Platform provider (#4510) and an SSH usage cache (#4554).',
         'steipete/CodexBar',
-      ),
-      project(
-        'qmd',
-        'Fixed loading of the legacy adoption sample body in the store.',
-        'tobi/qmd',
       ),
       project(
         'Heeler',

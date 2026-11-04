@@ -75,6 +75,13 @@ export default function Home() {
               </li>
               <li>
                 <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
+                  Find the bedrock.
+                </strong>{' '}
+                Dig until you hit something that&apos;s undeniably true, then
+                build on it.
+              </li>
+              <li>
+                <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
                   Moving fast.
                 </strong>{' '}
                 Ship something small, watch what happens, fix it. Speed is how

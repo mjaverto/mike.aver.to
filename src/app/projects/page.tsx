@@ -14,94 +14,149 @@ function LinkIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
   )
 }
 
-const projects = [
-  {
-    name: 'infinite-recall',
-    description:
-      'Local-first macOS rewind/recorder. Always-on capture, on-device transcription (WhisperKit), on-device diarization (MFCC), local LLM via mlx-lm.server, Omi-shaped REST API for MCP clients.',
+function project(name: string, description: string, repo = `mjaverto/${name}`) {
+  return {
+    name,
+    description,
     link: {
-      href: 'https://github.com/mjaverto/infinite-recall',
-      label: 'github.com/mjaverto/infinite-recall',
+      href: `https://github.com/${repo}`,
+      label: `github.com/${repo}`,
     },
+  }
+}
+
+const groups = [
+  {
+    heading: 'Built',
+    projects: [
+      project(
+        'infinite-recall',
+        'Local-first macOS rewind/recorder. Always-on capture, on-device transcription (WhisperKit), on-device diarization (MFCC), local LLM via mlx-lm.server, Omi-shaped REST API for MCP clients.',
+      ),
+      project('yearbird', 'Year-at-a-glance view for Google Calendar.'),
+      project(
+        'panynj-crossings',
+        'Bridge and tunnel crossing times for PANYNJ, with auto-refresh and dark mode.',
+      ),
+      project(
+        'park-slope-heroes',
+        "Browser beat-'em-up built with Phaser 3: pixel-art stages, bosses, touch controls.",
+      ),
+      project(
+        'messaging-markdown-exporter',
+        'Export conversations from multiple messaging apps into a shared Markdown format.',
+      ),
+      project(
+        'ace',
+        'Agent Conversation Exporter — render Claude Code, Codex, Pi, and opencode transcripts to Markdown.',
+      ),
+      project(
+        'squid-proxy-lockdown',
+        "OpenClaw skill: monitor and lock down your AI agent's outbound network traffic with Squid.",
+      ),
+      project('skein', 'Mom, liberated. Multi-platform AI agent runtime.'),
+    ],
   },
   {
-    name: 'ace',
-    description:
-      'Agent Conversation Exporter — render Claude Code, Codex, Pi, and opencode transcripts to Markdown.',
-    link: {
-      href: 'https://github.com/mjaverto/ace',
-      label: 'github.com/mjaverto/ace',
-    },
+    heading: 'Forks I build on',
+    projects: [
+      project(
+        'paperclip',
+        'Open-source orchestration for zero-human companies. My fork carries 150 commits of my own work.',
+      ),
+      project(
+        'Lidless',
+        'macOS menu-bar app that keeps the Mac awake with the lid closed, for coding agents.',
+      ),
+      project('mcp-proxy', 'Streamable HTTP and stdio bridge for MCP.'),
+      project('MeetingBar', 'macOS menu-bar meetings. PR open upstream.'),
+    ],
   },
   {
-    name: 'skein',
-    description:
-      'Mom, liberated. Multi-platform AI agent runtime.',
-    link: {
-      href: 'https://github.com/mjaverto/skein',
-      label: 'github.com/mjaverto/skein',
-    },
-  },
-  {
-    name: 'messaging-markdown-exporter',
-    description:
-      'Export conversations from multiple messaging apps into a shared Markdown format.',
-    link: {
-      href: 'https://github.com/mjaverto/messaging-markdown-exporter',
-      label: 'github.com/mjaverto/messaging-markdown-exporter',
-    },
-  },
-  {
-    name: 'yearbird',
-    description:
-      'Year-at-a-glance calendar view for Google Calendar.',
-    link: {
-      href: 'https://github.com/mjaverto/yearbird',
-      label: 'github.com/mjaverto/yearbird',
-    },
-  },
-  {
-    name: 'squid-proxy-lockdown',
-    description:
-      'OpenClaw skill: monitor and lock down your AI agent\'s outbound network traffic with Squid.',
-    link: {
-      href: 'https://github.com/mjaverto/squid-proxy-lockdown',
-      label: 'github.com/mjaverto/squid-proxy-lockdown',
-    },
+    heading: 'Merged upstream',
+    projects: [
+      project(
+        'CodexBar',
+        'Added a Claude Platform provider (#4510) and an SSH usage cache (#4554).',
+        'steipete/CodexBar',
+      ),
+      project(
+        'qmd',
+        'Fixed loading of the legacy adoption sample body in the store.',
+        'tobi/qmd',
+      ),
+      project(
+        'Heeler',
+        'Native iOS agent console for herdr. Four PRs: agent tab labels, swipe to close, and send reliability fixes.',
+        'ZingerLittleBee/Heeler',
+      ),
+      project(
+        'LibreChat',
+        'Auto-submit for URL query params, plus the matching docs update.',
+        'LibreChat-AI/LibreChat',
+      ),
+      project(
+        'vagrant',
+        'Fixed a Windows 10 Enterprise error.',
+        'hashicorp/vagrant',
+      ),
+      project(
+        'FoundationPress',
+        'Added a data-offcanvas attribute to the WordPress starter theme.',
+        'olefredrik/FoundationPress',
+      ),
+      project(
+        'grunt-shopify',
+        'Fixed Windows file path handling in the Shopify theme plug-in.',
+        'wilr/grunt-shopify',
+      ),
+    ],
   },
 ]
 
 export const metadata: Metadata = {
   title: 'Projects',
-  description: 'Things I\'ve built and contributed to.',
+  description:
+    "Things I've built, forks I've shipped to, and fixes I've landed upstream.",
 }
 
 export default function Projects() {
   return (
     <SimpleLayout
-      title="Things I've built and contributed to."
-      intro="A mix of original projects and forks I actively work on — mostly TypeScript and Swift, mostly AI-adjacent."
+      title="Projects."
+      intro="Things I've built, forks I've shipped to, and fixes I've landed upstream."
     >
-      <ul
-        role="list"
-        className="grid grid-cols-1 gap-x-12 gap-y-16 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        {projects.map((project) => (
-          <Card as="li" key={project.name}>
-            <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md shadow-zinc-800/5 ring-1 ring-zinc-900/5 dark:border dark:border-zinc-700/50 dark:bg-zinc-800 dark:ring-0">
-              <LinkIcon className="h-6 w-6 text-zinc-500 dark:text-zinc-400" />
-            </div>
-            <h2 className="mt-6 text-base font-semibold text-zinc-800 dark:text-zinc-100">
-              <Card.Link href={project.link.href}>{project.name}</Card.Link>
+      <div className="space-y-20">
+        {groups.map((group) => (
+          <section key={group.heading}>
+            <h2 className="mb-10 text-xl font-semibold tracking-tight text-zinc-800 dark:text-zinc-100">
+              {group.heading}
             </h2>
-            <Card.Description>{project.description}</Card.Description>
-            <p className="relative z-10 mt-6 flex text-sm font-medium text-zinc-400 transition group-hover:text-teal-500 dark:text-zinc-200">
-              <LinkIcon className="h-6 w-6 flex-none" />
-              <span className="ml-2">{project.link.label}</span>
-            </p>
-          </Card>
+            <ul
+              role="list"
+              className="grid grid-cols-1 gap-x-12 gap-y-16 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              {group.projects.map((project) => (
+                <Card as="li" key={project.name}>
+                  <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md ring-1 shadow-zinc-800/5 ring-zinc-900/5 dark:border dark:border-zinc-700/50 dark:bg-zinc-800 dark:ring-0">
+                    <LinkIcon className="h-6 w-6 text-zinc-500 dark:text-zinc-400" />
+                  </div>
+                  <h3 className="mt-6 text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                    <Card.Link href={project.link.href}>
+                      {project.name}
+                    </Card.Link>
+                  </h3>
+                  <Card.Description>{project.description}</Card.Description>
+                  <p className="relative z-10 mt-6 flex text-sm font-medium text-zinc-400 transition group-hover:text-teal-500 dark:text-zinc-200">
+                    <LinkIcon className="h-6 w-6 flex-none" />
+                    <span className="ml-2">{project.link.label}</span>
+                  </p>
+                </Card>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     </SimpleLayout>
   )
 }

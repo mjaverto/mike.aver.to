@@ -31,7 +31,6 @@ function SocialLink({
   )
 }
 
-
 export const metadata: Metadata = {
   title: 'About',
   description: "I'm Mike Averto — builder, product engineer, and AI tinkerer.",
@@ -62,11 +61,44 @@ export default function About() {
               about systems that are practical, maintainable, and actually
               useful to real people.
             </p>
-            <p>
-              When I&apos;m not shipping, I&apos;m usually running experiments
-              with local models, poking at infrastructure, or writing up what I
-              learned so I don&apos;t have to learn it twice.
+            <p className="font-medium text-zinc-800 dark:text-zinc-100">
+              Important things to me:
             </p>
+            <ul
+              role="list"
+              className="list-disc space-y-4 pl-5 marker:text-teal-500"
+            >
+              <li>
+                <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
+                  Enthusiasm.
+                </strong>{' '}
+                Love the problem, not just your solution. Craft follows.
+              </li>
+              <li>
+                <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
+                  Moving fast.
+                </strong>{' '}
+                Ship something small, watch what happens, fix it. Speed is how
+                you learn, and most decisions are cheaper to undo than to
+                agonize over.
+              </li>
+              <li>
+                <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
+                  Small teams.
+                </strong>{' '}
+                Few people, little overhead, everyone owning real work. AI
+                agents make this stronger every month.
+                <ul
+                  role="list"
+                  className="mt-2 list-[circle] space-y-2 pl-5 marker:text-teal-500"
+                >
+                  <li>
+                    A small team aligned on a mission can change the world.
+                    Alignment beats headcount.
+                  </li>
+                </ul>
+              </li>
+            </ul>
           </div>
         </div>
         <div className="lg:pl-20">

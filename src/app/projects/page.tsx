@@ -25,10 +25,23 @@ function project(name: string, description: string, repo = `mjaverto/${name}`) {
   }
 }
 
+function site(name: string, description: string, href: string) {
+  return {
+    name,
+    description,
+    link: { href, label: new URL(href).host },
+  }
+}
+
 const groups = [
   {
     heading: 'Built',
     projects: [
+      site(
+        'Waycar',
+        'Talk to your phone and the coding agents on your own Mac or Linux box keep building. Step away, then pick right back up. Native for iPhone and iPad.',
+        'https://waycar.dev',
+      ),
       project(
         'infinite-recall',
         'Local-first macOS rewind/recorder. Always-on capture, on-device transcription (WhisperKit), on-device diarization (MFCC), local LLM via mlx-lm.server, Omi-shaped REST API for MCP clients.',

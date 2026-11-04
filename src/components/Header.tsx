@@ -215,12 +215,9 @@ function AvatarContainer({
 }
 
 function Avatar({
-  large = false,
   className,
   ...props
-}: Omit<React.ComponentPropsWithoutRef<typeof Link>, 'href'> & {
-  large?: boolean
-}) {
+}: Omit<React.ComponentPropsWithoutRef<typeof Link>, 'href'>) {
   return (
     <Link
       href="/"
@@ -231,11 +228,8 @@ function Avatar({
       <Image
         src={avatarImage}
         alt=""
-        sizes={large ? '4rem' : '2.25rem'}
-        className={clsx(
-          'rounded-full bg-zinc-100 object-cover dark:bg-zinc-800',
-          large ? 'h-16 w-16' : 'h-9 w-9',
-        )}
+        sizes="2.25rem"
+        className="h-9 w-9 rounded-full bg-zinc-100 object-cover dark:bg-zinc-800"
         priority
       />
     </Link>
@@ -243,14 +237,11 @@ function Avatar({
 }
 
 export function Header() {
-  let isHomePage = usePathname() === '/'
-
   let headerRef = useRef<React.ElementRef<'div'>>(null)
-  let avatarRef = useRef<React.ElementRef<'div'>>(null)
   let isInitial = useRef(true)
 
   useEffect(() => {
-    let downDelay = avatarRef.current?.offsetTop ?? 0
+    let downDelay = 0
     let upDelay = 64
 
     function setProperty(property: string, value: string) {
@@ -277,8 +268,6 @@ export function Header() {
         setProperty('--header-position', 'sticky')
       }
 
-      setProperty('--content-offset', `${downDelay}px`)
-
       if (isInitial.current || scrollY < downDelay) {
         setProperty('--header-height', `${downDelay + height}px`)
         setProperty('--header-mb', `${-downDelay}px`)
@@ -302,40 +291,8 @@ export function Header() {
       }
     }
 
-    function updateAvatarStyles() {
-      if (!isHomePage) {
-        return
-      }
-
-      let fromScale = 1
-      let toScale = 36 / 64
-      let fromX = 0
-      let toX = 2 / 16
-
-      let scrollY = downDelay - window.scrollY
-
-      let scale = (scrollY * (fromScale - toScale)) / downDelay + toScale
-      scale = clamp(scale, fromScale, toScale)
-
-      let x = (scrollY * (fromX - toX)) / downDelay + toX
-      x = clamp(x, fromX, toX)
-
-      setProperty(
-        '--avatar-image-transform',
-        `translate3d(${x}rem, 0, 0) scale(${scale})`,
-      )
-
-      let borderScale = 1 / (toScale / scale)
-      let borderX = (-toX + x) * borderScale
-      let borderTransform = `translate3d(${borderX}rem, 0, 0) scale(${borderScale})`
-
-      setProperty('--avatar-border-transform', borderTransform)
-      setProperty('--avatar-border-opacity', scale === toScale ? '1' : '0')
-    }
-
     function updateStyles() {
       updateHeaderStyles()
-      updateAvatarStyles()
       isInitial.current = false
     }
 
@@ -347,97 +304,48 @@ export function Header() {
       window.removeEventListener('scroll', updateStyles)
       window.removeEventListener('resize', updateStyles)
     }
-  }, [isHomePage])
+  }, [])
 
   return (
-    <>
-      <header
-        className="pointer-events-none relative z-50 flex flex-none flex-col"
+    <header
+      className="pointer-events-none relative z-50 flex flex-none flex-col"
+      style={{
+        height: 'var(--header-height)',
+        marginBottom: 'var(--header-mb)',
+      }}
+    >
+      <div
+        ref={headerRef}
+        className="top-0 z-10 h-16 pt-6"
         style={{
-          height: 'var(--header-height)',
-          marginBottom: 'var(--header-mb)',
+          position: 'var(--header-position)' as React.CSSProperties['position'],
         }}
       >
-        {isHomePage && (
-          <>
-            <div
-              ref={avatarRef}
-              className="order-last mt-[calc(--spacing(16)-(--spacing(3)))]"
-            />
-            <Container
-              className="top-0 order-last -mb-3 pt-3"
-              style={{
-                position:
-                  'var(--header-position)' as React.CSSProperties['position'],
-              }}
-            >
-              <div
-                className="top-(--avatar-top,--spacing(3)) w-full"
-                style={{
-                  position:
-                    'var(--header-inner-position)' as React.CSSProperties['position'],
-                }}
-              >
-                <div className="relative">
-                  <AvatarContainer
-                    className="absolute top-3 left-0 origin-left transition-opacity"
-                    style={{
-                      opacity: 'var(--avatar-border-opacity, 0)',
-                      transform: 'var(--avatar-border-transform)',
-                    }}
-                  />
-                  <Avatar
-                    large
-                    className="block h-16 w-16 origin-left"
-                    style={{ transform: 'var(--avatar-image-transform)' }}
-                  />
-                </div>
-              </div>
-            </Container>
-          </>
-        )}
-        <div
-          ref={headerRef}
-          className="top-0 z-10 h-16 pt-6"
+        <Container
+          className="top-(--header-top,--spacing(6)) w-full"
           style={{
             position:
-              'var(--header-position)' as React.CSSProperties['position'],
+              'var(--header-inner-position)' as React.CSSProperties['position'],
           }}
         >
-          <Container
-            className="top-(--header-top,--spacing(6)) w-full"
-            style={{
-              position:
-                'var(--header-inner-position)' as React.CSSProperties['position'],
-            }}
-          >
-            <div className="relative flex gap-4">
-              <div className="flex flex-1">
-                {!isHomePage && (
-                  <AvatarContainer>
-                    <Avatar />
-                  </AvatarContainer>
-                )}
-              </div>
-              <div className="flex flex-1 justify-end md:justify-center">
-                <MobileNavigation className="pointer-events-auto md:hidden" />
-                <DesktopNavigation className="pointer-events-auto hidden md:block" />
-              </div>
-              <div className="flex justify-end md:flex-1">
-                <div className="pointer-events-auto">
-                  <ThemeToggle />
-                </div>
+          <div className="relative flex gap-4">
+            <div className="flex flex-1">
+              <AvatarContainer>
+                <Avatar />
+              </AvatarContainer>
+            </div>
+            <div className="flex flex-1 justify-end md:justify-center">
+              <MobileNavigation className="pointer-events-auto md:hidden" />
+              <DesktopNavigation className="pointer-events-auto hidden md:block" />
+            </div>
+            <div className="flex justify-end md:flex-1">
+              <div className="pointer-events-auto">
+                <ThemeToggle />
               </div>
             </div>
-          </Container>
-        </div>
-      </header>
-      {isHomePage && (
-        <div
-          className="flex-none"
-          style={{ height: 'var(--content-offset)' }}
-        />
-      )}
-    </>
+          </div>
+        </Container>
+      </div>
+    </header>
   )
 }

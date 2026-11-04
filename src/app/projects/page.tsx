@@ -80,6 +80,11 @@ const groups = [
         'steipete/CodexBar',
       ),
       project(
+        'qmd',
+        'Fix: load the legacy adoption sample body by rowid instead of a per-chunk GROUP BY.',
+        'tobi/qmd',
+      ),
+      project(
         'Heeler',
         'Native iOS agent console for herdr. Four PRs: agent tab labels, swipe to close, and send reliability fixes.',
         'ZingerLittleBee/Heeler',

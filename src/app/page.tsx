@@ -62,7 +62,7 @@ export default function Home() {
               about systems that are practical, maintainable, and actually
               useful to real people.
             </p>
-            <ul role="list" className="space-y-1">
+            <ul role="list" className="space-y-2 text-pretty">
               <li>
                 Grew up outside Scranton, Pennsylvania. Yes, like{' '}
                 <em>The Office</em>.

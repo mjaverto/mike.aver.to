@@ -13,8 +13,23 @@
 // contribution into neighbouring days.
 //
 // Token: GH_CONTRIB_TOKEN, falling back to GITHUB_TOKEN.
-// Fails soft: on a missing token or any error it logs a warning, leaves the
-// existing JSON untouched, and exits 0 so it can never break a build.
+// Fails soft: with no token, or when a year cannot be fetched and has no
+// previous data to reuse, it logs a warning, leaves the existing JSON
+// untouched, and exits 0 so it can never break a build. A year that fails but
+// exists in the current JSON is kept as is while the other years refresh.
+//
+// src/data/github-extra-commits.json is not written by this script. It holds
+// public commits authored under Mike's email addresses that are not linked to
+// the GitHub account, which the calendar never counts: { total, days: {
+// "YYYY-MM-DD": count } }. It was generated once by hand; to regenerate it:
+//   1. For each of Mike's author emails, list commits via the REST API
+//      (GET /repos/{repo}/commits?author=<email>&sha=<branch>) across every
+//      branch of his public repos, plus org-owned and upstream repos he
+//      committed to.
+//   2. Keep commits whose top-level `author` is null (the email is not linked
+//      to any account, so GitHub does not count it). Skip linked ones.
+//   3. Deduplicate by SHA, bucket by the UTC date of commit.author.date, and
+//      write the per-day counts and their sum as `total`.
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -237,16 +252,25 @@ async function main() {
     return
   }
 
+  const existing = await readExisting()
   const today = new Date().toISOString().slice(0, 10)
   const currentYear = Number(today.slice(0, 4))
   const years = []
   for (let year = currentYear; year >= FIRST_YEAR; year--) {
-    years.push(await fetchYear(token, year, today))
+    try {
+      years.push(await fetchYear(token, year, today))
+    } catch (error) {
+      const previous = existing?.years?.find((entry) => entry.year === year)
+      if (!previous) throw error
+      warn(
+        `${error instanceof Error ? error.message : error}; keeping the existing ${year} data`,
+      )
+      years.push(previous)
+    }
   }
 
   // Only rewrite the file when the contribution data itself changed, so a
   // scheduled refresh does not produce a commit just for a new timestamp.
-  const existing = await readExisting()
   if (existing && JSON.stringify(existing.years) === JSON.stringify(years)) {
     console.log('[github-contributions] no changes')
     return

@@ -1,21 +1,5 @@
 {
-  "description": "Public commits authored by Mike under email addresses that are not linked to the mjaverto GitHub account, so GitHub's contribution calendar does not count them. Added on top of the GitHub calendar at build time.",
-  "generatedAt": "2026-11-04",
-  "rule": "Author email is one of Mike's addresses and the GitHub API reports no linked user for the commit (author login null). Unique by SHA across all branches of public repos. Bucketed by UTC author date.",
-  "emails": {
-    "mike@otreva.com": 256,
-    "mjaverto@gmail.com": 76
-  },
-  "repos": {
-    "mjaverto/infinite-recall": 249,
-    "mjaverto/paperclip": 58,
-    "mjaverto/mike.aver.to": 12,
-    "mjaverto/messaging-markdown-exporter": 7,
-    "Shapekit/spindle": 3,
-    "mjaverto/squid-proxy-lockdown": 2,
-    "mjaverto/CodexBar": 1
-  },
-  "commits": 332,
+  "total": 332,
   "days": {
     "2026-03-08": 11,
     "2026-03-15": 1,

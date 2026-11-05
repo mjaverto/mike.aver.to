@@ -15,36 +15,61 @@ jobs:
     permissions:
       contents: write
     outputs:
-      sha: ${{ steps.commit.outputs.sha }}
+      sha: ${{ steps.push.outputs.sha }}
     steps:
       - uses: actions/checkout@v6
         with:
           ref: main
+          fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-node@v6
         with:
           node-version: 22
 
-      - name: Fetch contributions
-        run: node scripts/fetch-github-contributions.mjs
+      - name: Refresh, commit and push if changed
+        id: push
         env:
-          GH_CONTRIB_TOKEN: ${{ secrets.GH_CONTRIB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit and push if changed
-        id: commit
+          # The fetch script only sees GH_CONTRIB_TOKEN; the push token is
+          # removed from its environment and only used by git below.
+          GH_CONTRIB_TOKEN: ${{ secrets.GH_CONTRIB_TOKEN || github.token }}
+          PUSH_TOKEN: ${{ github.token }}
         run: |
-          if git diff --quiet -- src/data/github-contributions.json; then
-            echo "No changes"
-            exit 0
-          fi
+          data=src/data/github-contributions.json
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
+          echo "::add-mask::$auth"
+          remote_git() { git -c "http.https://github.com/.extraheader=$auth" "$@"; }
+          refresh() {
+            env -u PUSH_TOKEN node scripts/fetch-github-contributions.mjs
+            if git diff --quiet -- "$data"; then
+              echo "No changes"
+              return 1
+            fi
+            git add "$data"
+            git commit -m 'chore: refresh GitHub contributions'
+          }
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/data/github-contributions.json
-          git commit -m 'chore: refresh GitHub contributions'
-          git pull --rebase origin main
-          git push origin HEAD:main
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          refresh || exit 0
+
+          for attempt in 1 2 3; do
+            if remote_git pull --rebase origin main; then
+              if remote_git push origin HEAD:main; then
+                echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            else
+              # A conflict (or failed fetch): start over from the newest main.
+              git rebase --abort 2>/dev/null || true
+              git reset --hard origin/main
+              refresh || exit 0
+            fi
+            echo "Attempt $attempt did not push; retrying"
+            sleep $((attempt * 5))
+          done
+          echo "::error::Could not push the refreshed data after 3 attempts"
+          exit 1
 
   # A push made with GITHUB_TOKEN does not trigger deploy.yml, so deploy here.
   deploy:

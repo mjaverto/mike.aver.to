@@ -24,7 +24,6 @@ const MS_PER_DAY = 86_400_000
 // Applied to a parent; colors its direct children by their data-level.
 const CELL_COLORS =
   '*:rounded-[1px] sm:*:rounded-[2px] *:data-[level=0]:bg-zinc-100 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
-const WEEK_COLUMNS = 'grid-cols-[repeat(53,minmax(0,1fr))]'
 const GAP = 'gap-px sm:gap-[2px]'
 
 export type YearActivity = {
@@ -40,13 +39,15 @@ function formatCount(count: number) {
   return new Intl.NumberFormat('en-US').format(count)
 }
 
-function describe(count: number, date: Date) {
-  const amount = count === 0 ? 'No' : formatCount(count)
-  return `${amount} contribution${count === 1 ? '' : 's'} on ${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`
-}
-
 export function YearCalendar({ year, total, counts, levels }: YearActivity) {
   const offset = new Date(Date.UTC(year, 0, 1)).getUTCDay()
+  const daysInYear =
+    (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / MS_PER_DAY
+  // 53 week columns, or 54 when a leap year starts on a Saturday. Counted from
+  // the whole year so the current, partial year keeps the same cell size.
+  const weekColumns = {
+    gridTemplateColumns: `repeat(${Math.ceil((offset + daysInYear) / 7)}, minmax(0, 1fr))`,
+  }
   const months = MONTHS.flatMap((name, month) => {
     const day = (Date.UTC(year, month, 1) - Date.UTC(year, 0, 1)) / MS_PER_DAY
     if (day >= counts.length) return []
@@ -67,7 +68,8 @@ export function YearCalendar({ year, total, counts, levels }: YearActivity) {
         <div />
         <div
           aria-hidden="true"
-          className={`grid ${WEEK_COLUMNS} ${GAP} mb-1.5 h-2.5`}
+          className={`grid ${GAP} mb-1.5 h-2.5`}
+          style={weekColumns}
         >
           {months.map(({ name, week }) => (
             <span
@@ -92,19 +94,27 @@ export function YearCalendar({ year, total, counts, levels }: YearActivity) {
         <div
           role="img"
           aria-label={`${formatCount(total)} contribution${total === 1 ? '' : 's'} in ${year}`}
-          className={`grid grid-flow-col grid-rows-[repeat(7,auto)] ${WEEK_COLUMNS} ${GAP} ${CELL_COLORS} *:aspect-square`}
+          className={`grid grid-flow-col grid-rows-[repeat(7,auto)] ${GAP} ${CELL_COLORS} *:aspect-square`}
+          style={weekColumns}
         >
           {Array.from({ length: offset }, (_, i) => (
             <span key={`pad-${i}`} />
           ))}
-          {counts.map((count, i) => (
-            <span
-              key={i}
-              aria-hidden="true"
-              data-level={levels[i]}
-              title={describe(count, new Date(Date.UTC(year, 0, 1 + i)))}
-            />
-          ))}
+          {counts.map((count, i) => {
+            const date = new Date(Date.UTC(year, 0, 1 + i))
+            return (
+              <span
+                key={i}
+                aria-hidden="true"
+                data-level={levels[i]}
+                title={
+                  count > 0
+                    ? `${formatCount(count)} contribution${count === 1 ? '' : 's'} on ${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${year}`
+                    : undefined
+                }
+              />
+            )
+          })}
         </div>
       </div>
     </div>

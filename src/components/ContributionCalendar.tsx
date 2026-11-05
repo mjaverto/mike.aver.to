@@ -6,17 +6,17 @@
 
 const MS_PER_DAY = 86_400_000
 
-// Applied to a parent; colors its direct children by their data-level.
-const CELL_COLORS =
-  '*:rounded-[2px] *:data-[level=0]:bg-zinc-200 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
-// Fixed-size cells that scroll below lg, stretched to the full width above.
-const COLUMNS =
-  'grid-cols-[repeat(var(--columns),0.5rem)] lg:grid-cols-[repeat(var(--columns),minmax(0,1fr))]'
+// Applied to a parent; colors its direct children by their data-level and
+// gives them a subtle hover zoom.
+const CELL_STYLES =
+  '*:rounded-[3px] *:transition *:duration-150 *:ease-out *:hover:relative *:hover:z-10 *:hover:scale-125 *:hover:brightness-110 *:hover:ring-1 *:hover:ring-teal-500/60 motion-reduce:*:transition-none motion-reduce:*:hover:scale-100 *:data-[level=0]:bg-zinc-200 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
+const COLUMNS = 'grid-cols-[repeat(var(--columns),minmax(0,1fr))]'
 
 export type WeeklyActivity = {
   // The Sunday that starts the first week, as YYYY-MM-DD.
   start: string
-  total: number
+  // The last day with data, as YYYY-MM-DD.
+  lastDate: string
   // Contributions per week, oldest first.
   counts: Array<number>
   // Level 0 to 4 per week, as a string of digits aligned with counts.
@@ -36,17 +36,15 @@ const formatDate = new Intl.DateTimeFormat('en-US', {
 // take the place of months.
 export function ContributionCalendar({
   start,
-  total,
+  lastDate,
   counts,
   levels,
 }: WeeklyActivity) {
   const startTime = Date.parse(start)
   // Weeks belong to the year they end in, so a first week starting in late
-  // December counts toward January and the last week's year is its Saturday's.
+  // December counts toward January.
   const firstYear = new Date(startTime + 6 * MS_PER_DAY).getUTCFullYear()
-  const lastYear = new Date(
-    startTime + ((counts.length - 1) * 7 + 6) * MS_PER_DAY,
-  ).getUTCFullYear()
+  const lastYear = Number(lastDate.slice(0, 4))
   // Each year is labeled above the column holding the week of January 1.
   const years = Array.from({ length: lastYear - firstYear + 1 }, (_, i) => {
     const year = firstYear + i
@@ -61,67 +59,37 @@ export function ContributionCalendar({
   } as React.CSSProperties
 
   return (
-    // Right to left so narrow screens start scrolled to the newest weeks.
     <div
-      dir="rtl"
-      tabIndex={0}
-      role="region"
-      aria-label="Weekly GitHub contributions"
-      className="overflow-x-auto rounded-sm pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-500 lg:overflow-visible"
+      aria-hidden="true"
+      className="text-[10px] leading-none lg:text-xs text-zinc-400 dark:text-zinc-500"
     >
-      <div
-        dir="ltr"
-        className="w-max text-[10px] leading-none text-zinc-400 lg:w-full dark:text-zinc-500"
-      >
-        <div
-          aria-hidden="true"
-          className={`mb-1.5 grid h-2.5 gap-[2px] ${COLUMNS}`}
-          style={style}
-        >
-          {years.map(({ year, column }) => (
-            <span
-              key={year}
-              className="min-w-0 whitespace-nowrap"
-              style={{ gridColumnStart: column + 1, gridRowStart: 1 }}
-            >
-              {year}
-            </span>
-          ))}
-        </div>
-        <div
-          role="img"
-          aria-label={`${formatCount(total)} contributions from ${firstYear} to ${lastYear}`}
-          className={`grid grid-flow-col grid-rows-[repeat(7,auto)] gap-[2px] ${COLUMNS} ${CELL_COLORS} *:aspect-square`}
-          style={style}
-        >
-          {counts.map((count, i) => (
-            <span
-              key={i}
-              aria-hidden="true"
-              data-level={levels[i]}
-              title={
-                count > 0
-                  ? `${formatCount(count)} contribution${count === 1 ? '' : 's'}, week of ${formatDate(startTime + i * 7 * MS_PER_DAY)}`
-                  : undefined
-              }
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export function ContributionLegend() {
-  return (
-    <div aria-hidden="true" className="flex items-center gap-1.5">
-      Less
-      <span className={`flex gap-[2px] ${CELL_COLORS} *:size-2.5`}>
-        {[0, 1, 2, 3, 4].map((level) => (
-          <span key={level} data-level={level} />
+      <div className={`mb-1.5 grid h-2.5 gap-[3px] lg:mb-2 lg:h-3 lg:gap-1 ${COLUMNS}`} style={style}>
+        {years.map(({ year, column }) => (
+          <span
+            key={year}
+            className="min-w-0 whitespace-nowrap"
+            style={{ gridColumnStart: column + 1, gridRowStart: 1 }}
+          >
+            {year}
+          </span>
         ))}
-      </span>
-      More
+      </div>
+      <div
+        className={`grid grid-flow-col grid-rows-[repeat(7,auto)] gap-[3px] lg:gap-1 ${COLUMNS} ${CELL_STYLES} *:aspect-square`}
+        style={style}
+      >
+        {counts.map((count, i) => (
+          <span
+            key={i}
+            data-level={levels[i]}
+            title={
+              count > 0
+                ? `${formatCount(count)} contribution${count === 1 ? '' : 's'}, week of ${formatDate(startTime + i * 7 * MS_PER_DAY)}`
+                : undefined
+            }
+          />
+        ))}
+      </div>
     </div>
   )
 }

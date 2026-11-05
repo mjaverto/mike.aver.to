@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
@@ -14,7 +13,6 @@ import {
 import clsx from 'clsx'
 
 import { Container } from '@/components/Container'
-import avatarImage from '@/images/avatar.jpg'
 
 function CloseIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
   return (
@@ -199,39 +197,13 @@ function clamp(number: number, a: number, b: number) {
   return Math.min(Math.max(number, min), max)
 }
 
-function AvatarContainer({
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<'div'>) {
-  return (
-    <div
-      className={clsx(
-        className,
-        'h-10 w-10 rounded-full bg-white/90 p-0.5 shadow-lg ring-1 shadow-zinc-800/5 ring-zinc-900/5 backdrop-blur-sm dark:bg-zinc-800/90 dark:ring-white/10',
-      )}
-      {...props}
-    />
-  )
-}
-
-function Avatar({
-  className,
-  ...props
-}: Omit<React.ComponentPropsWithoutRef<typeof Link>, 'href'>) {
+function HomeMark() {
   return (
     <Link
       href="/"
-      aria-label="Home"
-      className={clsx(className, 'pointer-events-auto')}
-      {...props}
+      className="pointer-events-auto rounded-full bg-white/90 px-4 py-2 text-sm font-semibold whitespace-nowrap text-zinc-800 shadow-lg ring-1 shadow-zinc-800/5 ring-zinc-900/5 backdrop-blur-sm transition hover:text-teal-500 dark:bg-zinc-800/90 dark:text-zinc-100 dark:ring-white/10 dark:hover:text-teal-400"
     >
-      <Image
-        src={avatarImage}
-        alt=""
-        sizes="2.25rem"
-        className="h-9 w-9 rounded-full bg-zinc-100 object-cover dark:bg-zinc-800"
-        priority
-      />
+      Mike Averto
     </Link>
   )
 }
@@ -327,9 +299,7 @@ export function Header() {
         >
           <div className="relative flex gap-4">
             <div className="flex flex-1">
-              <AvatarContainer>
-                <Avatar />
-              </AvatarContainer>
+              <HomeMark />
             </div>
             <div className="flex flex-1 justify-end md:justify-center">
               <MobileNavigation className="pointer-events-auto md:hidden" />

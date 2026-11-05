@@ -8,10 +8,10 @@ import '@/styles/tailwind.css'
 export const metadata: Metadata = {
   title: {
     template: '%s - Mike Averto',
-    default: 'Mike Averto — builder, product engineer, and AI tinkerer.',
+    default: 'Mike Averto',
   },
   description:
-    'Mike Averto — builder, product engineer, and AI tinkerer. Writing about software, AI agents, and the things I build.',
+    "Builder in New York City. I've started a few companies and I'm laying the foundations of physical inventory at Shopify.",
   alternates: {
     types: {
       'application/rss+xml': `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mike.aver.to'}/feed.xml`,

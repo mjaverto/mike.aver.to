@@ -32,7 +32,8 @@ function SocialLink({
 }
 
 export const metadata: Metadata = {
-  description: "I'm Mike Averto — builder, product engineer, and AI tinkerer.",
+  description:
+    "Builder in New York City. I've started a few companies and I'm laying the foundations of physical inventory at Shopify.",
 }
 
 export default function Home() {
@@ -51,60 +52,76 @@ export default function Home() {
         </div>
         <div className="lg:order-first lg:row-span-2">
           <h1 className="text-4xl font-bold tracking-tight text-zinc-800 sm:text-5xl dark:text-zinc-100">
-            I&apos;m Mike Averto — builder, product engineer, and AI tinkerer.
+            Mike Averto
           </h1>
-          <div className="mt-6 space-y-7 text-base text-zinc-600 dark:text-zinc-400">
-            <p>
-              I build software products and spend a lot of time thinking about
-              how AI agents change what&apos;s possible for small teams. I care
+          <div className="mt-6 max-w-md space-y-10 text-base text-zinc-600 dark:text-zinc-400">
+            <p className="text-pretty">
+              I build things. Lately that&apos;s mostly software, but the itch
+              is older than that. I spend a lot of time thinking about how AI
+              agents change what&apos;s possible for small teams, and I care
               about systems that are practical, maintainable, and actually
               useful to real people.
             </p>
-            <p className="font-medium text-zinc-800 dark:text-zinc-100">
-              Important things to me:
-            </p>
-            <ul
-              role="list"
-              className="list-disc space-y-4 pl-5 marker:text-teal-500"
-            >
+            <ul role="list" className="space-y-1">
               <li>
-                <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
-                  Enthusiasm.
-                </strong>{' '}
-                Love the problem, not just your solution. Craft follows.
+                Grew up outside Scranton, Pennsylvania. Yes, like{' '}
+                <em>The Office</em>.
               </li>
+              <li>Started a few companies</li>
+              <li>Live in New York City</li>
               <li>
-                <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
-                  Find the bedrock.
-                </strong>{' '}
-                Dig until you hit something that&apos;s undeniably true, then
-                build on it.
-              </li>
-              <li>
-                <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
-                  Moving fast.
-                </strong>{' '}
-                Ship something small, watch what happens, fix it. Speed is how
-                you learn, and most decisions are cheaper to undo than to
-                agonize over.
-              </li>
-              <li>
-                <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
-                  Small teams.
-                </strong>{' '}
-                Few people, little overhead, everyone owning real work. AI
-                agents make this stronger every month.
-                <ul
-                  role="list"
-                  className="mt-2 list-[circle] space-y-2 pl-5 marker:text-teal-500"
-                >
-                  <li>
-                    A small team aligned on a mission can change the world.
-                    Alignment beats headcount.
-                  </li>
-                </ul>
+                Currently laying the foundations of physical inventory at
+                Shopify
               </li>
             </ul>
+            <div>
+              <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                Important things to me:
+              </p>
+              <ul role="list" className="mt-3 space-y-5">
+                <li>
+                  <span className="block font-medium text-zinc-900 dark:text-zinc-100">
+                    Enthusiasm
+                  </span>
+                  <span className="block text-pretty">
+                    Love the problem, not just your solution. Craft follows.
+                  </span>
+                </li>
+                <li>
+                  <span className="block font-medium text-zinc-900 dark:text-zinc-100">
+                    Find the bedrock
+                  </span>
+                  <span className="block text-pretty">
+                    Dig until you hit something that&apos;s undeniably true,
+                    then build on it.
+                  </span>
+                </li>
+                <li>
+                  <span className="block font-medium text-zinc-900 dark:text-zinc-100">
+                    Moving fast
+                  </span>
+                  <span className="block text-pretty">
+                    Ship something small, watch what happens, fix it. Speed is
+                    how you learn, and most decisions are cheaper to undo than
+                    to agonize over.
+                  </span>
+                </li>
+                <li>
+                  <span className="block font-medium text-zinc-900 dark:text-zinc-100">
+                    Small teams
+                  </span>
+                  <span className="block text-pretty">
+                    Few people, little overhead, everyone owning real work.
+                  </span>
+                  <ul role="list">
+                    <li className="mt-2 border-l border-zinc-200 pl-4 text-pretty text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                      A small team aligned on a mission can change the world.
+                      Alignment beats headcount.
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
         <div className="lg:pl-20">

@@ -13,7 +13,8 @@ export async function GET() {
 
   let feed = new Feed({
     title: 'Mike Averto',
-    description: 'Mike Averto — builder, product engineer, and AI tinkerer.',
+    description:
+      "Builder in New York City. I've started a few companies and I'm laying the foundations of physical inventory at Shopify.",
     author,
     id: siteUrl,
     link: siteUrl,

@@ -241,7 +241,6 @@ export function Header() {
   let isInitial = useRef(true)
 
   useEffect(() => {
-    let downDelay = 0
     let upDelay = 64
 
     function setProperty(property: string, value: string) {
@@ -268,9 +267,9 @@ export function Header() {
         setProperty('--header-position', 'sticky')
       }
 
-      if (isInitial.current || scrollY < downDelay) {
-        setProperty('--header-height', `${downDelay + height}px`)
-        setProperty('--header-mb', `${-downDelay}px`)
+      if (isInitial.current) {
+        setProperty('--header-height', `${height}px`)
+        setProperty('--header-mb', '0px')
       } else if (top + height < -upDelay) {
         let offset = Math.max(height, scrollY - upDelay)
         setProperty('--header-height', `${offset}px`)
@@ -280,14 +279,12 @@ export function Header() {
         setProperty('--header-mb', `${-scrollY}px`)
       }
 
-      if (top === 0 && scrollY > 0 && scrollY >= downDelay) {
+      if (top === 0 && scrollY > 0) {
         setProperty('--header-inner-position', 'fixed')
         removeProperty('--header-top')
-        removeProperty('--avatar-top')
       } else {
         removeProperty('--header-inner-position')
         setProperty('--header-top', '0px')
-        setProperty('--avatar-top', '0px')
       }
     }
 

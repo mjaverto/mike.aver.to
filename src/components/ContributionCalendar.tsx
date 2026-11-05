@@ -8,7 +8,7 @@ const MS_PER_DAY = 86_400_000
 
 // Applied to a parent; colors its direct children by their data-level.
 const CELL_COLORS =
-  '*:rounded-[2px] *:data-[level=0]:bg-zinc-100 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
+  '*:rounded-[2px] *:data-[level=0]:bg-zinc-200 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
 // Fixed-size cells that scroll below lg, stretched to the full width above.
 const COLUMNS =
   'grid-cols-[repeat(var(--columns),0.5rem)] lg:grid-cols-[repeat(var(--columns),minmax(0,1fr))]'
@@ -41,10 +41,11 @@ export function ContributionCalendar({
   levels,
 }: WeeklyActivity) {
   const startTime = Date.parse(start)
-  // The first week can start in late December; it belongs to the year it ends in.
+  // Weeks belong to the year they end in, so a first week starting in late
+  // December counts toward January and the last week's year is its Saturday's.
   const firstYear = new Date(startTime + 6 * MS_PER_DAY).getUTCFullYear()
   const lastYear = new Date(
-    startTime + (counts.length - 1) * 7 * MS_PER_DAY,
+    startTime + ((counts.length - 1) * 7 + 6) * MS_PER_DAY,
   ).getUTCFullYear()
   // Each year is labeled above the column holding the week of January 1.
   const years = Array.from({ length: lastYear - firstYear + 1 }, (_, i) => {
@@ -61,7 +62,13 @@ export function ContributionCalendar({
 
   return (
     // Right to left so narrow screens start scrolled to the newest weeks.
-    <div dir="rtl" className="overflow-x-auto pb-2 lg:overflow-visible">
+    <div
+      dir="rtl"
+      tabIndex={0}
+      role="region"
+      aria-label="Weekly GitHub contributions"
+      className="overflow-x-auto rounded-sm pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-500 lg:overflow-visible"
+    >
       <div
         dir="ltr"
         className="w-max text-[10px] leading-none text-zinc-400 lg:w-full dark:text-zinc-500"

@@ -9,7 +9,7 @@ const MS_PER_DAY = 86_400_000
 // Applied to a parent; colors its direct children by their data-level and
 // gives them a subtle hover zoom.
 const CELL_STYLES =
-  '*:rounded-[3px] *:transition *:duration-150 *:ease-out *:hover:relative *:hover:z-10 *:hover:scale-125 *:hover:brightness-110 *:hover:ring-1 *:hover:ring-teal-600 dark:*:hover:ring-teal-500/60 motion-reduce:*:transition-none motion-reduce:*:hover:scale-100 *:data-[level=0]:bg-zinc-200 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
+  '*:rounded-[3px] *:transition *:duration-150 *:ease-out *:hover:relative *:hover:z-10 *:hover:scale-125 *:hover:brightness-110 *:hover:ring-1 *:hover:ring-teal-800 dark:*:hover:ring-teal-500/60 motion-reduce:*:transition-none motion-reduce:*:hover:scale-100 *:data-[level=0]:bg-zinc-200 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
 const COLUMNS = 'grid-cols-[repeat(var(--columns),minmax(0,1fr))]'
 
 export type WeeklyActivity = {
@@ -63,7 +63,7 @@ export function ContributionCalendar({
       aria-hidden="true"
       // Cap each column at a 14px square plus a 3px gap, like GitHub's graph;
       // narrower screens shrink the squares to fit.
-      className="max-w-[calc(var(--columns)*1.0625rem)] text-[10px] leading-none text-zinc-400 lg:text-xs dark:text-zinc-500"
+      className="w-[calc(var(--columns)*1.0625rem)] max-w-full text-[10px] leading-none text-zinc-400 lg:text-xs dark:text-zinc-500"
       style={style}
     >
       <div className={`mb-1.5 grid h-2.5 gap-[3px] lg:mb-2 lg:h-3 ${COLUMNS}`}>

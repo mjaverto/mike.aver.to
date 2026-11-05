@@ -54,7 +54,7 @@ export function GitHubActivity() {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Mike Averto on GitHub (opens in new tab)"
-        className="block cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-500"
+        className="block w-fit max-w-full cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-500"
       >
         <ContributionCalendar
           start={new Date(start).toISOString().slice(0, 10)}

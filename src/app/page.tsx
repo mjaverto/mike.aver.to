@@ -4,6 +4,7 @@ import Link from 'next/link'
 import clsx from 'clsx'
 
 import { Container } from '@/components/Container'
+import { GitHubActivity } from '@/components/GitHubActivity'
 import { GitHubIcon, XIcon } from '@/components/SocialIcons'
 import portraitImage from '@/images/portrait.jpg'
 
@@ -74,6 +75,7 @@ export default function Home() {
                 Shopify
               </li>
             </ul>
+            <GitHubActivity />
             <div>
               <p className="font-medium text-zinc-900 dark:text-zinc-100">
                 Important things to me:

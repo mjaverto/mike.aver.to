@@ -5,18 +5,28 @@ on:
     branches:
       - main
   workflow_dispatch:
-
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+  # Called by refresh-github-contributions.yml after it pushes a data commit,
+  # because pushes made with GITHUB_TOKEN do not trigger other workflows.
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit to deploy (defaults to the triggering commit)
+        type: string
+        required: false
+        default: ''
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-node@v6
         with:

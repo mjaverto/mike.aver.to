@@ -61,9 +61,12 @@ export function ContributionCalendar({
   return (
     <div
       aria-hidden="true"
-      className="text-[10px] leading-none lg:text-xs text-zinc-400 dark:text-zinc-500"
+      className="text-[10px] leading-none text-zinc-400 lg:text-xs dark:text-zinc-500"
     >
-      <div className={`mb-1.5 grid h-2.5 gap-[3px] lg:mb-2 lg:h-3 lg:gap-1 ${COLUMNS}`} style={style}>
+      <div
+        className={`mb-1.5 grid h-2.5 gap-[3px] lg:mb-2 lg:h-3 lg:gap-1 ${COLUMNS}`}
+        style={style}
+      >
         {years.map(({ year, column }) => (
           <span
             key={year}

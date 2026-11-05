@@ -75,7 +75,6 @@ export default function Home() {
                 Shopify
               </li>
             </ul>
-            <GitHubActivity />
             <div>
               <p className="font-medium text-zinc-900 dark:text-zinc-100">
                 Important things to me:
@@ -140,6 +139,9 @@ export default function Home() {
             </SocialLink>
           </ul>
         </div>
+      </div>
+      <div className="mt-16 sm:mt-20">
+        <GitHubActivity />
       </div>
     </Container>
   )

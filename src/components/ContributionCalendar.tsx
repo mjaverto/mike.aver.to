@@ -1,120 +1,104 @@
 'use client'
 
-// A client component only so the page ships each year as compact props
-// (counts and levels) instead of thousands of server-rendered cells twice over
-// (once as HTML, once in the RSC payload). It has no state or effects.
+// A client component only so the page ships the weeks as compact props (counts
+// and levels) instead of hundreds of server-rendered cells twice over (once as
+// HTML, once in the RSC payload). It has no state or effects.
 
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
-const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
 const MS_PER_DAY = 86_400_000
 
 // Applied to a parent; colors its direct children by their data-level.
 const CELL_COLORS =
-  '*:rounded-[1px] sm:*:rounded-[2px] *:data-[level=0]:bg-zinc-100 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
-const GAP = 'gap-px sm:gap-[2px]'
+  '*:rounded-[2px] *:data-[level=0]:bg-zinc-100 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
+// Fixed-size cells that scroll below lg, stretched to the full width above.
+const COLUMNS =
+  'grid-cols-[repeat(var(--columns),0.5rem)] lg:grid-cols-[repeat(var(--columns),minmax(0,1fr))]'
 
-export type YearActivity = {
-  year: number
+export type WeeklyActivity = {
+  // The Sunday that starts the first week, as YYYY-MM-DD.
+  start: string
   total: number
-  // Contributions per day from January 1, one entry per day with data.
+  // Contributions per week, oldest first.
   counts: Array<number>
-  // Level 0 to 4 per day, as a string of digits aligned with counts.
+  // Level 0 to 4 per week, as a string of digits aligned with counts.
   levels: string
 }
 
-function formatCount(count: number) {
-  return new Intl.NumberFormat('en-US').format(count)
-}
+const formatCount = new Intl.NumberFormat('en-US').format
+const formatDate = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+}).format
 
-export function YearCalendar({ year, total, counts, levels }: YearActivity) {
-  const offset = new Date(Date.UTC(year, 0, 1)).getUTCDay()
-  const daysInYear =
-    (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / MS_PER_DAY
-  // 53 week columns, or 54 when a leap year starts on a Saturday. Counted from
-  // the whole year so the current, partial year keeps the same cell size.
-  const weekColumns = {
-    gridTemplateColumns: `repeat(${Math.ceil((offset + daysInYear) / 7)}, minmax(0, 1fr))`,
-  }
-  const months = MONTHS.flatMap((name, month) => {
-    const day = (Date.UTC(year, month, 1) - Date.UTC(year, 0, 1)) / MS_PER_DAY
-    if (day >= counts.length) return []
-    return [{ name: name.slice(0, 3), week: Math.floor((day + offset) / 7) }]
+// GitHub's contribution graph zoomed out: each square is a week instead of a
+// day, filled down 7 rows and then across, so a column is 7 weeks and years
+// take the place of months.
+export function ContributionCalendar({
+  start,
+  total,
+  counts,
+  levels,
+}: WeeklyActivity) {
+  const startTime = Date.parse(start)
+  // The first week can start in late December; it belongs to the year it ends in.
+  const firstYear = new Date(startTime + 6 * MS_PER_DAY).getUTCFullYear()
+  const lastYear = new Date(
+    startTime + (counts.length - 1) * 7 * MS_PER_DAY,
+  ).getUTCFullYear()
+  // Each year is labeled above the column holding the week of January 1.
+  const years = Array.from({ length: lastYear - firstYear + 1 }, (_, i) => {
+    const year = firstYear + i
+    const week = Math.floor(
+      (Math.max(Date.UTC(year, 0, 1), startTime) - startTime) /
+        (7 * MS_PER_DAY),
+    )
+    return { year, column: Math.floor(week / 7) }
   })
+  const style = {
+    '--columns': Math.ceil(counts.length / 7),
+  } as React.CSSProperties
 
   return (
-    <div>
-      <p className="flex items-baseline justify-between text-sm">
-        <span className="font-medium text-zinc-900 dark:text-zinc-100">
-          {year}
-        </span>
-        <span className="text-zinc-500 dark:text-zinc-400">
-          {formatCount(total)} contribution{total === 1 ? '' : 's'}
-        </span>
-      </p>
-      <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 text-[10px] leading-none text-zinc-400 dark:text-zinc-500">
-        <div />
+    // Right to left so narrow screens start scrolled to the newest weeks.
+    <div dir="rtl" className="overflow-x-auto pb-2 lg:overflow-visible">
+      <div
+        dir="ltr"
+        className="w-max text-[10px] leading-none text-zinc-400 lg:w-full dark:text-zinc-500"
+      >
         <div
           aria-hidden="true"
-          className={`grid ${GAP} mb-1.5 h-2.5`}
-          style={weekColumns}
+          className={`mb-1.5 grid h-2.5 gap-[2px] ${COLUMNS}`}
+          style={style}
         >
-          {months.map(({ name, week }) => (
+          {years.map(({ year, column }) => (
             <span
-              key={name}
+              key={year}
               className="min-w-0 whitespace-nowrap"
-              style={{ gridColumnStart: week + 1, gridRowStart: 1 }}
+              style={{ gridColumnStart: column + 1, gridRowStart: 1 }}
             >
-              {name}
-            </span>
-          ))}
-        </div>
-        <div
-          aria-hidden="true"
-          className={`grid grid-rows-[repeat(7,minmax(0,1fr))] ${GAP}`}
-        >
-          {DAY_LABELS.map((label, row) => (
-            <span key={row} className="flex h-0 items-center self-center">
-              {label}
+              {year}
             </span>
           ))}
         </div>
         <div
           role="img"
-          aria-label={`${formatCount(total)} contribution${total === 1 ? '' : 's'} in ${year}`}
-          className={`grid grid-flow-col grid-rows-[repeat(7,auto)] ${GAP} ${CELL_COLORS} *:aspect-square`}
-          style={weekColumns}
+          aria-label={`${formatCount(total)} contributions from ${firstYear} to ${lastYear}`}
+          className={`grid grid-flow-col grid-rows-[repeat(7,auto)] gap-[2px] ${COLUMNS} ${CELL_COLORS} *:aspect-square`}
+          style={style}
         >
-          {Array.from({ length: offset }, (_, i) => (
-            <span key={`pad-${i}`} />
+          {counts.map((count, i) => (
+            <span
+              key={i}
+              aria-hidden="true"
+              data-level={levels[i]}
+              title={
+                count > 0
+                  ? `${formatCount(count)} contribution${count === 1 ? '' : 's'}, week of ${formatDate(startTime + i * 7 * MS_PER_DAY)}`
+                  : undefined
+              }
+            />
           ))}
-          {counts.map((count, i) => {
-            const date = new Date(Date.UTC(year, 0, 1 + i))
-            return (
-              <span
-                key={i}
-                aria-hidden="true"
-                data-level={levels[i]}
-                title={
-                  count > 0
-                    ? `${formatCount(count)} contribution${count === 1 ? '' : 's'} on ${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${year}`
-                    : undefined
-                }
-              />
-            )
-          })}
         </div>
       </div>
     </div>

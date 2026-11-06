@@ -4,8 +4,14 @@ import extraCommits from '@/data/github-extra-commits.json'
 
 const PROFILE_URL = `https://github.com/${contributions.login}`
 const MS_PER_DAY = 86_400_000
-// The chart starts with the week of January 1, 2023.
-const FIRST_YEAR = 2023
+const MS_PER_COLUMN = 49 * MS_PER_DAY
+// Columns are 7-week blocks counted from the first Sunday of 1970, so they stay
+// put as new weeks arrive.
+const EPOCH = Date.UTC(1970, 0, 4)
+// Enough columns for the widest layout: the 64rem content column fits
+// floor((1024 + 3) / 17) = 60 columns of 14px squares with a 3px gap. Narrower
+// layouts show only the newest columns that fit.
+const COLUMNS = 60
 
 // Levels are quartiles of the active weeks, as GitHub does for days: an active
 // week gets level 1 to 4 by which quarter of the non-zero counts it falls in.
@@ -35,11 +41,11 @@ export function GitHubActivity() {
 
   const lastDate = contributions.years[0].days.at(-1)!.date
 
-  // Weeks run Sunday to Saturday, from the week of January 1 of the first
-  // year through the week of the last day with data.
-  const jan1 = Date.UTC(FIRST_YEAR, 0, 1)
-  const start = jan1 - new Date(jan1).getUTCDay() * MS_PER_DAY
+  // Weeks run Sunday to Saturday, from the start of the oldest of COLUMNS
+  // columns ending with the one holding the last day with data.
   const end = Date.parse(lastDate)
+  const lastColumn = Math.floor((end - EPOCH) / MS_PER_COLUMN)
+  const start = EPOCH + (lastColumn - COLUMNS + 1) * MS_PER_COLUMN
   const counts: Array<number> = []
   for (let day = start; day <= end; day += MS_PER_DAY) {
     const week = Math.floor((day - start) / (7 * MS_PER_DAY))
@@ -54,7 +60,7 @@ export function GitHubActivity() {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Mike Averto on GitHub (opens in new tab)"
-        className="block w-fit max-w-full cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-500"
+        className="block w-full cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-500"
       >
         <ContributionCalendar
           start={new Date(start).toISOString().slice(0, 10)}

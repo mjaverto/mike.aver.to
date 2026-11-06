@@ -115,14 +115,8 @@ export default function Home() {
                     Small teams
                   </span>
                   <span className="block text-pretty">
-                    Few people, little overhead, everyone owning real work.
+                    A small team aligned on a mission can change the world.
                   </span>
-                  <ul role="list">
-                    <li className="mt-2 border-l border-zinc-200 pl-4 text-pretty text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                      A small team aligned on a mission can change the world.
-                      Alignment beats headcount.
-                    </li>
-                  </ul>
                 </li>
               </ul>
             </div>

@@ -23,14 +23,12 @@ const CELL_STYLES =
   '*:rounded-[3px] *:transition *:duration-150 *:ease-out *:hover:relative *:hover:z-10 *:hover:scale-125 *:hover:brightness-110 *:hover:shadow-md *:hover:ring-2 *:hover:shadow-zinc-900/40 *:hover:ring-white *:hover:ring-offset-0 dark:*:hover:shadow-black/60 dark:*:hover:ring-zinc-100 motion-reduce:*:transition-none motion-reduce:*:hover:scale-100 *:data-[level=0]:bg-zinc-200 *:data-[level=1]:bg-teal-200 *:data-[level=2]:bg-teal-300 *:data-[level=3]:bg-teal-500 *:data-[level=4]:bg-teal-700 dark:*:data-[level=0]:bg-zinc-800 dark:*:data-[level=1]:bg-teal-900 dark:*:data-[level=2]:bg-teal-700 dark:*:data-[level=3]:bg-teal-500 dark:*:data-[level=4]:bg-teal-300'
 
 export type BucketedActivity = {
-  // The first day of the first cell, as YYYY-MM-DD.
+  // The first day of the window, as YYYY-MM-DD.
   start: string
-  // The last day with data, as YYYY-MM-DD.
-  lastDate: string
-  // Cells per column.
+  // Days in the window, split across the cells as evenly as whole days allow.
+  days: number
+  // Cells per column; the cells fill whole columns.
   rows: number
-  // Days summed into each cell.
-  daysPerCell: number
   // Contributions per cell, oldest first.
   counts: Array<number>
   // Level 0 to 4 per cell, as a string of digits aligned with counts.
@@ -63,24 +61,27 @@ function formatRange(from: number, to: number) {
 // months.
 export function ContributionCalendar({
   start,
-  lastDate,
+  days,
   rows,
-  daysPerCell,
   counts,
   levels,
 }: BucketedActivity) {
   const startTime = Date.parse(start)
-  const lastTime = Date.parse(lastDate)
-  const msPerCell = daysPerCell * MS_PER_DAY
-  const msPerColumn = rows * msPerCell
-  const columns = Math.ceil(counts.length / rows)
+  const columns = counts.length / rows
+  // Day d of the window falls in cell floor(d * cells / days), so cell i
+  // starts on day ceil(i * days / cells).
+  const cellStart = (i: number) =>
+    startTime + Math.ceil((i * days) / counts.length) * MS_PER_DAY
 
   const firstYear = new Date(startTime).getUTCFullYear()
-  const lastYear = new Date(lastTime).getUTCFullYear()
-  const firstColumn = (year: number) =>
-    year > firstYear
-      ? Math.floor((Date.UTC(year, 0, 1) - startTime) / msPerColumn)
-      : 0
+  const lastYear = new Date(
+    startTime + (days - 1) * MS_PER_DAY,
+  ).getUTCFullYear()
+  const firstColumn = (year: number) => {
+    if (year === firstYear) return 0
+    const day = (Date.UTC(year, 0, 1) - startTime) / MS_PER_DAY
+    return Math.floor(Math.floor((day * counts.length) / days) / rows)
+  }
   // Each year is labeled from the column holding January 1 up to the next
   // year's. A year cut off at the left edge is labeled at the edge, but only
   // if its label fits in the columns left showing.
@@ -90,27 +91,20 @@ export function ContributionCalendar({
     return { year, first: firstColumn(year), last }
   }).filter(({ first, last }) => first <= last)
 
-  // Newest column first, each column's cells top to bottom, padding the
-  // newest column so the next one starts on the top row.
+  // Newest column first, each column's cells top to bottom.
   const cells = []
   for (let column = columns - 1; column >= 0; column--) {
     for (let i = column * rows; i < column * rows + rows; i++) {
-      const from = startTime + i * msPerCell
-      const to = Math.min(from + msPerCell - MS_PER_DAY, lastTime)
       cells.push(
-        i < counts.length ? (
-          <span
-            key={i}
-            data-level={levels[i]}
-            title={
-              counts[i] > 0
-                ? `${formatCount(counts[i])} contribution${counts[i] === 1 ? '' : 's'}, ${formatRange(from, to)}`
-                : undefined
-            }
-          />
-        ) : (
-          <span key={i} className="invisible" />
-        ),
+        <span
+          key={i}
+          data-level={levels[i]}
+          title={
+            counts[i] > 0
+              ? `${formatCount(counts[i])} contribution${counts[i] === 1 ? '' : 's'}, ${formatRange(cellStart(i), cellStart(i + 1) - MS_PER_DAY)}`
+              : undefined
+          }
+        />,
       )
     }
   }

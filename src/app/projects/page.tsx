@@ -76,10 +76,6 @@ const groups = [
         'paperclip',
         'Open-source orchestration for zero-human companies. My fork carries 150 commits of my own work.',
       ),
-      project(
-        'Lidless',
-        'macOS menu-bar app that keeps the Mac awake with the lid closed, for coding agents.',
-      ),
       project('mcp-proxy', 'Streamable HTTP and stdio bridge for MCP.'),
       project('MeetingBar', 'macOS menu-bar meetings. PR open upstream.'),
     ],
